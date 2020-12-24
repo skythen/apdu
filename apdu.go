@@ -1,3 +1,5 @@
+// Package apdu implements parsing and conversion of Application Protocol Data Units (APDU) which is the communication format between a card and off-card applications. The format of the APDU is defined in ISO specification 7816-4.
+// The package has support for extended length APDUs as well.
 package apdu
 
 import (
