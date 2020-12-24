@@ -34,7 +34,7 @@ or by parsing from bytes/strings:
 
 ```go
   bCapdu, err := apdu.ParseCapdu([]byte{0x80, 0xF2, 0xE0, 0x02, 0x02, 0x4F, 0x00, 0x00)
-  sCapdu, err := apdu.ParseCapduFromString("80F2E002024F0000")
+  sCapdu, err := apdu.ParseCapduHexString("80F2E002024F0000")
 ```
 
 ### Convert
@@ -94,7 +94,7 @@ or by parsing from bytes/strings:
 
 ```go
   bRapdu, err := apdu.ParseRapdu([]byte{0x90, 0x00)
-  sRapdu, err := apdu.ParseRapduFromString("0102039000")
+  sRapdu, err := apdu.ParseRapduHexString("0102039000")
 ```
 
 ### Convert
