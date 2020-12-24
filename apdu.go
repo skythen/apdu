@@ -170,9 +170,9 @@ func parseCapduExtendedLength(c []byte) (Capdu, error) {
 	return Capdu{Cla: c[OffsetCla], Ins: c[OffsetIns], P1: c[OffsetP1], P2: c[OffsetP2], Data: data, Ne: ne}, nil
 }
 
-// ParseCapduFromString decodes the hex-string representation of a Command APDU, calls ParseCapdu and returns a Capdu.
+// ParseCapduHexString decodes the hex-string representation of a Command APDU, calls ParseCapdu and returns a Capdu.
 // Any errors that occur while decoding and parsing are returned.
-func ParseCapduFromString(s string) (Capdu, error) {
+func ParseCapduHexString(s string) (Capdu, error) {
 	if len(s)%2 != 0 {
 		return Capdu{}, fmt.Errorf("%s: failed to parse Capdu because of uneven number of hex characters", packageTag)
 	}
@@ -217,9 +217,9 @@ func ParseRapdu(b []byte) (Rapdu, error) {
 	return Rapdu{Data: data, SW1: sw1, SW2: sw2}, nil
 }
 
-// ParseRapduFromString decodes the hex-string representation of a Response APDU, calls ParseRapdu and returns a Rapdu.
+// ParseRapduHexString decodes the hex-string representation of a Response APDU, calls ParseRapdu and returns a Rapdu.
 // Any errors that occur while decoding and parsing are returned.
-func ParseRapduFromString(s string) (Rapdu, error) {
+func ParseRapduHexString(s string) (Rapdu, error) {
 	if len(s)%2 != 0 {
 		return Rapdu{}, fmt.Errorf("%s: failed to parse Rapdu because of uneven number of hex characters", packageTag)
 	}

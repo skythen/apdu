@@ -110,7 +110,7 @@ func TestParseCapdu(t *testing.T) {
 	}
 }
 
-func TestParseCapduFromString(t *testing.T) {
+func TestParseCapduHexString(t *testing.T) {
 	longData := make([]byte, 300)
 	for i := range longData {
 		longData[i] = 0xFF
@@ -146,7 +146,7 @@ func TestParseCapduFromString(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			received, err := ParseCapduFromString(tc.input)
+			received, err := ParseCapduHexString(tc.input)
 			if err != nil && !tc.expectError {
 				t.Errorf("Expected: no error, got: error(%v)", err.Error())
 				return
@@ -205,7 +205,7 @@ func TestParseRapdu(t *testing.T) {
 	}
 }
 
-func TestParseRapduFromString(t *testing.T) {
+func TestParseRapduHexString(t *testing.T) {
 	tests := []struct {
 		name        string
 		inputString string
@@ -231,7 +231,7 @@ func TestParseRapduFromString(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			received, err := ParseRapduFromString(tc.inputString)
+			received, err := ParseRapduHexString(tc.inputString)
 			if err != nil && !tc.expectError {
 				t.Errorf("Expected: no error, got: error(%v)", err.Error())
 				return
