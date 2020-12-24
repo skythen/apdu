@@ -1,7 +1,7 @@
 # APDU
 
 [![Build Status](https://travis-ci.org/skythen/apdu.svg?branch=master)](https://travis-ci.org/skythen/apdu)
-[![Coverage Status](https://coveralls.io/repos/github/skythen/apdu/badge.svg?branch=master)](https://coveralls.io/github/skythen/apdu?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/skythen/apdu/badge.svg)](https://coveralls.io/github/skythen/apdu)
 [![GoDoc](https://godoc.org/github.com/skythen/apdu?status.svg)](http://godoc.org/github.com/skythen/apdu)
 [![Go Report Card](https://goreportcard.com/badge/github.com/skythen/apdu)](https://goreportcard.com/report/github.com/skythen/apdu)
 
