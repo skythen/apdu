@@ -18,7 +18,7 @@ const (
 	OffsetP2 int = 3
 	// OffsetLcStandard defines the offset to the LC byte of a standard length CAPDU
 	OffsetLcStandard int = 4
-	// OffsetLcStandard defines the offset to the LC byte of an extended length CAPDU
+	// OffsetLcExtended defines the offset to the LC byte of an extended length CAPDU
 	OffsetLcExtended int = 5
 	// OffsetCdataStandard defines the offset to the beginning of the data field of a standard length CAPDU
 	OffsetCdataStandard int = 5
@@ -74,55 +74,57 @@ func ParseCapdu(c []byte) (Capdu, error) {
 		return Capdu{Cla: c[OffsetCla], Ins: c[OffsetIns], P1: c[OffsetP1], P2: c[OffsetP2], Data: nil, Ne: 0}, nil
 	}
 
-	var ext bool
-
 	// check for zero byte
 	if c[OffsetLcStandard] == 0x00 {
 		// check for extended length CAPDU
 		if len(c[OffsetLcExtended:]) > 0 {
-			ext = true
+			return parseCapduExtendedLength(c)
 		}
 	}
 
-	if !ext {
-		// STANDARD CASE 2 command: HEADER | LE
-		if len(c) == LenHeader+LenLCStandard {
-			le := int(c[OffsetLcStandard]) // in this case, no LC is present
-			if le == 0 {
-				return Capdu{Cla: c[OffsetCla], Ins: c[OffsetIns], P1: c[OffsetP1], P2: c[OffsetP2], Data: nil, Ne: MaxLenResponseDataStandard}, nil
-			}
+	return parseCapduStandardLength(c)
+}
 
-			return Capdu{Cla: c[OffsetCla], Ins: c[OffsetIns], P1: c[OffsetP1], P2: c[OffsetP2], Data: nil, Ne: le}, nil
-		}
-
-		bodyLen := len(c) - LenHeader
-
-		// check if lc indicates length which is not out of bounds
-		lc := int(c[OffsetLcStandard])
-		if lc != bodyLen-LenLCStandard && lc != bodyLen-LenLCStandard-1 {
-			return Capdu{}, fmt.Errorf("%s: failed to parse Capdu because of invalid LC value - LC indicates length %d but body length after LC is %d", packageTag, lc, bodyLen-LenLCStandard)
-		}
-
-		data := c[OffsetCdataStandard : OffsetCdataStandard+lc]
-
-		// STANDARD CASE 3 command: HEADER | LC | DATA
-		if len(c) == LenHeader+LenLCStandard+len(data) {
-			return Capdu{Cla: c[OffsetCla], Ins: c[OffsetIns], P1: c[OffsetP1], P2: c[OffsetP2], Data: data, Ne: 0}, nil
-		}
-
-		// STANDARD CASE 4 command: HEADER | LC | DATA | LE
-		var ne int
-
-		le := int(c[len(c)-1]) // get last byte
+func parseCapduStandardLength(c []byte) (Capdu, error) {
+	// STANDARD CASE 2 command: HEADER | LE
+	if len(c) == LenHeader+LenLCStandard {
+		le := int(c[OffsetLcStandard]) // in this case, no LC is present
 		if le == 0 {
-			ne = MaxLenResponseDataStandard
-		} else {
-			ne = le
+			return Capdu{Cla: c[OffsetCla], Ins: c[OffsetIns], P1: c[OffsetP1], P2: c[OffsetP2], Data: nil, Ne: MaxLenResponseDataStandard}, nil
 		}
 
-		return Capdu{Cla: c[OffsetCla], Ins: c[OffsetIns], P1: c[OffsetP1], P2: c[OffsetP2], Data: data, Ne: ne}, nil
+		return Capdu{Cla: c[OffsetCla], Ins: c[OffsetIns], P1: c[OffsetP1], P2: c[OffsetP2], Data: nil, Ne: le}, nil
 	}
 
+	bodyLen := len(c) - LenHeader
+
+	// check if lc indicates length which is not out of bounds
+	lc := int(c[OffsetLcStandard])
+	if lc != bodyLen-LenLCStandard && lc != bodyLen-LenLCStandard-1 {
+		return Capdu{}, fmt.Errorf("%s: failed to parse Capdu because of invalid LC value - LC indicates length %d but body length after LC is %d", packageTag, lc, bodyLen-LenLCStandard)
+	}
+
+	data := c[OffsetCdataStandard : OffsetCdataStandard+lc]
+
+	// STANDARD CASE 3 command: HEADER | LC | DATA
+	if len(c) == LenHeader+LenLCStandard+len(data) {
+		return Capdu{Cla: c[OffsetCla], Ins: c[OffsetIns], P1: c[OffsetP1], P2: c[OffsetP2], Data: data, Ne: 0}, nil
+	}
+
+	// STANDARD CASE 4 command: HEADER | LC | DATA | LE
+	var ne int
+
+	le := int(c[len(c)-1]) // get last byte
+	if le == 0 {
+		ne = MaxLenResponseDataStandard
+	} else {
+		ne = le
+	}
+
+	return Capdu{Cla: c[OffsetCla], Ins: c[OffsetIns], P1: c[OffsetP1], P2: c[OffsetP2], Data: data, Ne: ne}, nil
+}
+
+func parseCapduExtendedLength(c []byte) (Capdu, error) {
 	// EXTENDED CASE 2 command: HEADER | LE
 	if len(c) == LenHeader+LenLCExtended { // in this case no LC is present, but the two byte LE with leading zero byte
 		var ne int
