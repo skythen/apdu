@@ -87,7 +87,6 @@ You can create a Rapdu either by creating a Rapdu struct:
 ```go
   rapduSwOnly := Rapdu{SW1: 0x90, SW2: 0x00}
   rapduData := Rapdu{Data: []byte{0x01, 0x02, 0x03},SW1: 0x90, SW2: 0x00}
-}
 ```
 
 or by parsing from bytes/strings:
