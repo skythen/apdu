@@ -41,11 +41,11 @@ or by parsing from bytes/strings:
 
 #### Bytes
 
-You can convert a Capdu to it's bytes representation with the Bytes() function. Case and format (standard/extended) are
+You can convert a Capdu to its bytes representation with the Bytes() function. Case and format (standard/extended) are
 inferred and applied automatically.
 
 **Please note that the upper limit for the length of Capdu.Data is 65535 and 65536 for Capdu.Ne - values that exceed
-these limits are truncated and set to the upper limit. This is to avoid returning errors and to make working with APDUs
+these limits are truncated. This is to avoid returning errors and to make working with APDUs
 more convenient.**
 
 ```go
@@ -54,7 +54,7 @@ more convenient.**
 
 #### String
 
-You can convert a Capdu to it's hex representation as well. The same rules apply as for conversion to bytes:
+You can convert a Capdu to its hex representation as well. The same rules apply as for conversion to bytes:
 
 ```go
   s := capdu.String()
@@ -100,10 +100,9 @@ or by parsing from bytes/strings:
 
 #### Bytes
 
-You can convert a Rapdu to it's bytes representation with the Bytes() function.
+You can convert a Rapdu to its bytes representation with the Bytes() function.
 
-**Please note that the upper limit for the length of Rapdu.Data is 65536 - values that exceed this limit are truncated
-and set to the upper limit. This is to avoid returning errors and to make working with APDUs more convenient.**
+**Please note that the upper limit for the length of Rapdu.Data is 65536 - values that exceed this limit are truncated. This is to avoid returning errors and to make working with APDUs more convenient.**
 
 ```go
   b := rapdu.Bytes()
@@ -111,7 +110,7 @@ and set to the upper limit. This is to avoid returning errors and to make workin
 
 #### String
 
-You can convert a Rapdu to it's hex representation as well. The same rules apply as for conversion to bytes:
+You can convert a Rapdu to its hex representation as well. The same rules apply as for conversion to bytes:
 
 ```go
   s := rapdu.String()
