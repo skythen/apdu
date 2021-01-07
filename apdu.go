@@ -238,28 +238,29 @@ func ParseRapduHexString(s string) (Rapdu, error) {
 
 // Bytes returns the byte representation of the CAPDU.
 // Case and format (standard/extended) of the CAPDU are inferred and applied automatically.
-// The upper limit for the length of Capdu.Data is 65535 and 65536 for Capdu.Ne - values that exceed these limits are truncated and set to the upper limit.
+// The upper limit for the length of Capdu.Data is 65535 and 65536 for Capdu.Ne - values that exceed these limits are truncated.
 // This is to avoid returning errors and to make working with APDUs more convenient.
 func (c Capdu) Bytes() []byte {
 	var (
-		capdu   []byte
 		dataLen int
 		ne      int
 	)
 
-	header := []byte{c.Cla, c.Ins, c.P1, c.P2}
-	copy(capdu, header)
+	result := make([]byte, 0)
+
+	result = append(result, []byte{c.Cla, c.Ins, c.P1, c.P2}...)
 
 	ca := c.determineCase()
 
 	// CASE 1: HEADER
 	if ca == 1 {
-		return []byte{c.Cla, c.Ins, c.P1, c.P2}
-	} else if ca == 2 {
+		return result
+	}
+
+	if ca == 2 {
 		// CASE 2: HEADER | LE
 		if c.Ne > MaxLenResponseDataStandard {
 			// extended length format
-
 			if c.Ne > MaxLenResponseDataExtended {
 				ne = MaxLenResponseDataExtended
 			} else {
@@ -276,75 +277,57 @@ func (c Capdu) Bytes() []byte {
 				le[2] = (byte)(c.Ne & 0xFF)
 			}
 
-			capdu = make([]byte, LenHeader+LenLCExtended)
-			copy(capdu, header)
-			copy(capdu[LenHeader:], le)
+			result = append(result, le...)
 
-			return capdu
+			return result
 		}
+
 		//standard format
-		capdu = make([]byte, LenHeader+LenLCStandard+len(c.Data))
-		copy(capdu, header)
-
 		if c.Ne == MaxLenResponseDataStandard {
-			capdu[LenHeader] = 0x00
+			result = append(result, 0x00)
 
-			return capdu
+			return result
 		}
 
-		capdu = make([]byte, LenHeader+LenLCStandard+len(c.Data))
-		capdu[OffsetCla] = c.Cla
-		capdu[OffsetIns] = c.Ins
-		capdu[OffsetP1] = c.P1
-		capdu[OffsetP2] = c.P2
-		capdu[LenHeader] = byte(c.Ne)
+		result = append(result, byte(c.Ne))
 
-		return capdu
-	} else if ca == 3 {
+		return result
+	}
+
+	dataLen = len(c.Data)
+
+	if ca == 3 {
 		// CASE 3: HEADER | LC | DATA
 		if len(c.Data) > MaxLenCommandDataStandard {
 			// truncate data if it exceeds max length
-			if len(c.Data) > MaxLenCommandDataExtended {
-				capdu = make([]byte, LenHeader+LenLCExtended+MaxLenCommandDataExtended)
+			if dataLen > MaxLenCommandDataExtended {
 				dataLen = MaxLenCommandDataExtended
-			} else {
-				capdu = make([]byte, LenHeader+LenLCExtended+len(c.Data))
-				dataLen = len(c.Data)
 			}
+
 			// extended length format
 			lc := make([]byte, LenLCExtended)
 			lc[1] = (byte)((dataLen >> 8) & 0xFF)
 			lc[2] = (byte)(dataLen & 0xFF)
 
-			copy(capdu, header)
-			copy(capdu[LenHeader:], lc)
-			copy(capdu[LenHeader+LenLCExtended:], c.Data)
+			result = append(result, lc...)
+			result = append(result, c.Data[:dataLen]...)
 
-			return capdu
+			return result
 		}
 
-		dataLen = len(c.Data)
 		//standard format
-		capdu = make([]byte, LenHeader+LenLCStandard+dataLen)
-		copy(capdu, header)
-		capdu[OffsetLcStandard] = byte(dataLen)
-		copy(capdu[LenHeader+LenLCStandard:], c.Data)
+		result = append(result, byte(dataLen))
+		result = append(result, c.Data...)
 
-		return capdu
+		return result
 	}
 
 	// CASE 4: HEADER | LC | DATA | LE
 	if c.Ne > MaxLenResponseDataStandard || len(c.Data) > MaxLenCommandDataStandard {
 		// extended length format
 		// truncate data if it exceeds max length
-		if len(c.Data) > MaxLenCommandDataExtended {
-			capdu = make([]byte, LenHeader+LenLCExtended+MaxLenCommandDataExtended+2)
-
+		if dataLen > MaxLenCommandDataExtended {
 			dataLen = MaxLenCommandDataExtended
-		} else {
-			capdu = make([]byte, LenHeader+LenLCExtended+len(c.Data)+2)
-
-			dataLen = len(c.Data)
 		}
 
 		// truncate ne if it exceeds max length
@@ -368,23 +351,19 @@ func (c Capdu) Bytes() []byte {
 		lc[1] = (byte)((dataLen >> 8) & 0xFF)
 		lc[2] = (byte)(dataLen & 0xFF)
 
-		copy(capdu, header)
-		copy(capdu[LenHeader:], lc)
-		copy(capdu[LenHeader+LenLCExtended:], c.Data)
-		copy(capdu[LenHeader+LenLCExtended+dataLen:], le)
+		result = append(result, lc...)
+		result = append(result, c.Data[:dataLen]...)
+		result = append(result, le...)
 
-		return capdu
+		return result
 	}
 
-	dataLen = len(c.Data)
 	//standard format
-	capdu = make([]byte, LenHeader+LenLCStandard+dataLen+1)
-	copy(capdu, header)
-	capdu[OffsetLcStandard] = byte(dataLen)
-	copy(capdu[OffsetCdataStandard:], c.Data)
-	capdu[OffsetCdataStandard+dataLen] = byte(c.Ne)
+	result = append(result, byte(dataLen))
+	result = append(result, c.Data...)
+	result = append(result, byte(c.Ne))
 
-	return capdu
+	return result
 }
 
 func (c Capdu) determineCase() int {
@@ -408,7 +387,7 @@ func (c Capdu) IsExtendedLength() bool {
 	return c.Ne > MaxLenResponseDataStandard || len(c.Data) > MaxLenCommandDataStandard
 }
 
-// Lc returns the byte representation of the CAPDU's Lc if present, otherwise nil.
+// Lc returns the byte representation of the CAPDUs Lc if present, otherwise nil.
 func (c Capdu) Lc() []byte {
 	var lc []byte
 
@@ -435,23 +414,22 @@ func (c Capdu) String() string {
 
 // Bytes returns the byte representation of the RAPDU.
 // Case and format (standard/extended) of the CAPDU are inferred and applied automatically.
-// The upper limit for the length of Capdu.Data is 65535 and 65536 for Capdu.Ne - values that exceed these limits are truncated and set to the upper limit.
+// The upper limit for the length of Capdu.Data is 65535 and 65536 for Capdu.Ne - values that exceed these limits are truncated.
 // This is to avoid returning errors and to make working with APDUs more convenient.
 func (r Rapdu) Bytes() []byte {
-	var rapdu []byte
-
 	// truncate data if it exceeds max length
+	var result []byte
+
 	if len(r.Data) > MaxLenResponseDataExtended {
-		rapdu = make([]byte, MaxLenResponseDataExtended+LenResponseTrailer)
+		result = make([]byte, 0, 65536)
 	} else {
-		rapdu = make([]byte, len(r.Data)+LenResponseTrailer)
+		result = make([]byte, 0, len(r.Data))
 	}
 
-	copy(rapdu, r.Data)
-	rapdu[len(rapdu)-2] = r.SW1
-	rapdu[len(rapdu)-1] = r.SW2
+	result = append(result, r.Data[:cap(result)]...)
+	result = append(result, []byte{r.SW1, r.SW2}...)
 
-	return rapdu
+	return result
 }
 
 // IsSuccess returns true if the RAPDU indicates the successful execution of a command ('0x9000'), otherwise false.
