@@ -34,18 +34,18 @@ or by parsing from bytes/strings:
 
 ```go
   bCapdu, err := apdu.ParseCapdu([]byte{0x80, 0xF2, 0xE0, 0x02, 0x02, 0x4F, 0x00, 0x00)
-  sCapdu, err := apdu.ParseCapduFromString("80F2E002024F0000")
+  sCapdu, err := apdu.ParseCapduHexString("80F2E002024F0000")
 ```
 
 ### Convert
 
 #### Bytes
 
-You can convert a Capdu to it's bytes representation with the Bytes() function. Case and format (standard/extended) are
+You can convert a Capdu to its bytes representation with the Bytes() function. Case and format (standard/extended) are
 inferred and applied automatically.
 
 **Please note that the upper limit for the length of Capdu.Data is 65535 and 65536 for Capdu.Ne - values that exceed
-these limits are truncated and set to the upper limit. This is to avoid returning errors and to make working with APDUs
+these limits are truncated. This is to avoid returning errors and to make working with APDUs
 more convenient.**
 
 ```go
@@ -54,7 +54,7 @@ more convenient.**
 
 #### String
 
-You can convert a Capdu to it's hex representation as well. The same rules apply as for conversion to bytes:
+You can convert a Capdu to its hex representation as well. The same rules apply as for conversion to bytes:
 
 ```go
   s := capdu.String()
@@ -87,24 +87,22 @@ You can create a Rapdu either by creating a Rapdu struct:
 ```go
   rapduSwOnly := Rapdu{SW1: 0x90, SW2: 0x00}
   rapduData := Rapdu{Data: []byte{0x01, 0x02, 0x03},SW1: 0x90, SW2: 0x00}
-}
 ```
 
 or by parsing from bytes/strings:
 
 ```go
   bRapdu, err := apdu.ParseRapdu([]byte{0x90, 0x00)
-  sRapdu, err := apdu.ParseRapduFromString("0102039000")
+  sRapdu, err := apdu.ParseRapduHexString("0102039000")
 ```
 
 ### Convert
 
 #### Bytes
 
-You can convert a Rapdu to it's bytes representation with the Bytes() function.
+You can convert a Rapdu to its bytes representation with the Bytes() function.
 
-**Please note that the upper limit for the length of Rapdu.Data is 65536 - values that exceed this limit are truncated
-and set to the upper limit. This is to avoid returning errors and to make working with APDUs more convenient.**
+**Please note that the upper limit for the length of Rapdu.Data is 65536 - values that exceed this limit are truncated. This is to avoid returning errors and to make working with APDUs more convenient.**
 
 ```go
   b := rapdu.Bytes()
@@ -112,7 +110,7 @@ and set to the upper limit. This is to avoid returning errors and to make workin
 
 #### String
 
-You can convert a Rapdu to it's hex representation as well. The same rules apply as for conversion to bytes:
+You can convert a Rapdu to its hex representation as well. The same rules apply as for conversion to bytes:
 
 ```go
   s := rapdu.String()
