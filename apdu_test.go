@@ -502,12 +502,20 @@ func TestRapdu_IsSuccess(t *testing.T) {
 			rapdu:    Rapdu{SW1: 0x90, SW2: 0x00},
 			expected: true,
 		},
+		{name: "sw only success",
+			rapdu:    Rapdu{SW1: 0x61, SW2: 0x10},
+			expected: true,
+		},
 		{name: "sw only not success",
 			rapdu:    Rapdu{SW1: 0x6A, SW2: 0x88},
 			expected: false,
 		},
 		{name: "sw + data success",
 			rapdu:    Rapdu{Data: []byte{0x01, 0x02, 0x03, 0x04}, SW1: 0x90, SW2: 0x00},
+			expected: true,
+		},
+		{name: "sw + data success",
+			rapdu:    Rapdu{Data: []byte{0x01, 0x02, 0x03, 0x04}, SW1: 0x61, SW2: 0x03},
 			expected: true,
 		},
 		{name: "sw + data not success",
@@ -519,6 +527,92 @@ func TestRapdu_IsSuccess(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			received := tc.rapdu.IsSuccess()
+
+			if received != tc.expected {
+				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
+			}
+		})
+	}
+}
+
+func TestRapdu_IsWarning(t *testing.T) {
+	tests := []struct {
+		name     string
+		rapdu    Rapdu
+		expected bool
+	}{
+		{name: "warning 0x62",
+			rapdu:    Rapdu{SW1: 0x62, SW2: 0x84},
+			expected: true,
+		},
+		{name: "warning 0x63",
+			rapdu:    Rapdu{SW1: 0x63, SW2: 0xC1},
+			expected: true,
+		},
+		{name: "success, not warning",
+			rapdu:    Rapdu{Data: []byte{0x01, 0x02, 0x03, 0x04}, SW1: 0x90, SW2: 0x00},
+			expected: false,
+		},
+		{name: "error, not warning",
+			rapdu:    Rapdu{SW1: 0x6F, SW2: 0x00},
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			received := tc.rapdu.IsWarning()
+
+			if received != tc.expected {
+				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
+			}
+		})
+	}
+}
+
+func TestRapdu_IsError(t *testing.T) {
+	tests := []struct {
+		name     string
+		rapdu    Rapdu
+		expected bool
+	}{
+		{name: "error 0x64",
+			rapdu:    Rapdu{SW1: 0x64, SW2: 0x00},
+			expected: true,
+		},
+		{name: "error 0x65",
+			rapdu:    Rapdu{SW1: 0x65, SW2: 0x81},
+			expected: true,
+		},
+		{name: "error 0x67",
+			rapdu:    Rapdu{SW1: 0x67, SW2: 0x00},
+			expected: true,
+		},
+		{name: "error 0x6A",
+			rapdu:    Rapdu{SW1: 0x6A, SW2: 0x88},
+			expected: true,
+		},
+		{name: "error 0x6F",
+			rapdu:    Rapdu{SW1: 0x6F, SW2: 0x00},
+			expected: true,
+		},
+		{name: "success, not error",
+			rapdu:    Rapdu{Data: []byte{0x01, 0x02, 0x03, 0x04}, SW1: 0x90, SW2: 0x00},
+			expected: false,
+		},
+		{name: "warning, not error",
+			rapdu:    Rapdu{SW1: 0x63, SW2: 0x00},
+			expected: false,
+		},
+		{name: "no error, 0x66 sw",
+			rapdu:    Rapdu{SW1: 0x66, SW2: 0x00},
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			received := tc.rapdu.IsError()
 
 			if received != tc.expected {
 				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)

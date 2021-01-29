@@ -432,9 +432,19 @@ func (r Rapdu) Bytes() []byte {
 	return result
 }
 
-// IsSuccess returns true if the RAPDU indicates the successful execution of a command ('0x9000'), otherwise false.
+// IsSuccess returns true if the RAPDU indicates the successful execution of a command ('0x61xx' or '0x9000'), otherwise false.
 func (r Rapdu) IsSuccess() bool {
-	return r.SW1 == 0x90 && r.SW2 == 0x00
+	return r.SW1 == 0x61 || r.SW1 == 0x90 && r.SW2 == 0x00
+}
+
+// IsWarning returns true if the RAPDU indicates the execution of a command with a warning ('0x62xx' or '0x63xx'), otherwise false.
+func (r Rapdu) IsWarning() bool {
+	return r.SW1 == 0x62 || r.SW1 == 0x63
+}
+
+// IsError returns true if the RAPDU indicates an error during the execution of a command ('0x64xx', '0x65xx' or from '0x67xx' to 0x6Fxx'), otherwise false.
+func (r Rapdu) IsError() bool {
+	return (r.SW1 == 0x64 || r.SW1 == 0x65) || (r.SW1 >= 0x67 && r.SW1 <= 0x6F)
 }
 
 // String calls Bytes and returns the hex encoded string representation of the RAPDU.
