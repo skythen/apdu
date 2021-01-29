@@ -115,14 +115,3 @@ You can convert a Rapdu to its hex representation as well. The same rules apply 
 ```go
   s := rapdu.String()
 ```
-
-### Utility
-
-#### IsSuccess
-
-Use IsSuccess to check if a Rapdu indicates a successful command execution ('0x9000'). Check SW1 and SW2 explicitly if
-other values indicate a successful execution as well.
-
-```go
-  ok := rapdu.IsSuccess()
-```

@@ -65,7 +65,6 @@ type Rapdu struct {
 // ParseCapdu parses the byte representation of a Command APDU and returns a Capdu.
 // The minimum length of a CAPDU is 4 byte (Case 1) and the maximum length is 65544 (Extended Length Case 4)
 // While parsing it is checked if the Lc, if present, indicates the correct data length.
-// Any errors that occur while parsing are returned.
 func ParseCapdu(c []byte) (Capdu, error) {
 	if len(c) < LenHeader || len(c) > 65544 {
 		return Capdu{}, fmt.Errorf("%s: failed to parse Capdu because of invalid length - a CAPDU must consist of at least 4 byte and maximum of 65544 byte, got %d", packageTag, len(c))
@@ -171,7 +170,6 @@ func parseCapduExtendedLength(c []byte) (Capdu, error) {
 }
 
 // ParseCapduHexString decodes the hex-string representation of a Command APDU, calls ParseCapdu and returns a Capdu.
-// Any errors that occur while decoding and parsing are returned.
 func ParseCapduHexString(s string) (Capdu, error) {
 	if len(s)%2 != 0 {
 		return Capdu{}, fmt.Errorf("%s: failed to parse Capdu because of uneven number of hex characters", packageTag)
@@ -191,7 +189,6 @@ func ParseCapduHexString(s string) (Capdu, error) {
 
 // ParseRapdu parses the byte representation of a Response APDU and returns a Rapdu.
 // The minimum length of a RAPDU is 2 byte and the maximum length is 65544
-// Any errors that occur while parsing are returned.
 func ParseRapdu(b []byte) (Rapdu, error) {
 	var (
 		data []byte
@@ -218,7 +215,6 @@ func ParseRapdu(b []byte) (Rapdu, error) {
 }
 
 // ParseRapduHexString decodes the hex-string representation of a Response APDU, calls ParseRapdu and returns a Rapdu.
-// Any errors that occur while decoding and parsing are returned.
 func ParseRapduHexString(s string) (Rapdu, error) {
 	if len(s)%2 != 0 {
 		return Rapdu{}, fmt.Errorf("%s: failed to parse Rapdu because of uneven number of hex characters", packageTag)
