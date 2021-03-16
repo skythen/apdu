@@ -10,37 +10,37 @@ import (
 )
 
 const (
-	// OffsetCla defines the offset to the Cla byte of a CAPDU
+	// OffsetCla defines the offset to the Cla byte of a CAPDU.
 	OffsetCla int = 0
-	// OffsetIns defines the offset to the Ins byte of a CAPDU
+	// OffsetIns defines the offset to the Ins byte of a CAPDU.
 	OffsetIns int = 1
-	// OffsetP1 defines the offset to the P1 byte of a CAPDU
+	// OffsetP1 defines the offset to the P1 byte of a CAPDU.
 	OffsetP1 int = 2
-	// OffsetP2 defines the offset to the P2 byte of a CAPDU
+	// OffsetP2 defines the offset to the P2 byte of a CAPDU.
 	OffsetP2 int = 3
-	// OffsetLcStandard defines the offset to the LC byte of a standard length CAPDU
+	// OffsetLcStandard defines the offset to the LC byte of a standard length CAPDU.
 	OffsetLcStandard int = 4
-	// OffsetLcExtended defines the offset to the LC byte of an extended length CAPDU
+	// OffsetLcExtended defines the offset to the LC byte of an extended length CAPDU.
 	OffsetLcExtended int = 5
-	// OffsetCdataStandard defines the offset to the beginning of the data field of a standard length CAPDU
+	// OffsetCdataStandard defines the offset to the beginning of the data field of a standard length CAPDU.
 	OffsetCdataStandard int = 5
-	// OffsetCdataExtended defines the offset to the beginning of the data field of an extended length CAPDU
+	// OffsetCdataExtended defines the offset to the beginning of the data field of an extended length CAPDU.
 	OffsetCdataExtended int = 7
-	// MaxLenCommandDataStandard defines the maximum command data length of a standard length CAPDU
+	// MaxLenCommandDataStandard defines the maximum command data length of a standard length CAPDU.
 	MaxLenCommandDataStandard int = 255
-	// MaxLenResponseDataStandard defines the maximum response data length of a standard length RAPDU
+	// MaxLenResponseDataStandard defines the maximum response data length of a standard length RAPDU.
 	MaxLenResponseDataStandard int = 256
-	// MaxLenCommandDataExtended defines the maximum command data length of an extended length CAPDU
+	// MaxLenCommandDataExtended defines the maximum command data length of an extended length CAPDU.
 	MaxLenCommandDataExtended int = 65535
-	// MaxLenResponseDataExtended defines the maximum response data length of an extended length RAPDU
+	// MaxLenResponseDataExtended defines the maximum response data length of an extended length RAPDU.
 	MaxLenResponseDataExtended int = 65536
-	// LenHeader defines the length of the header of an APDU
+	// LenHeader defines the length of the header of an APDU.
 	LenHeader int = 4
-	// LenLCStandard defines the length of the LC of a standard length APDU
+	// LenLCStandard defines the length of the LC of a standard length APDU.
 	LenLCStandard int = 1
-	// LenLCExtended defines the length of the LC of an extended length APDU
+	// LenLCExtended defines the length of the LC of an extended length APDU.
 	LenLCExtended int = 3
-	// LenResponseTrailer defines the length of the trailer of a Response APDU
+	// LenResponseTrailer defines the length of the trailer of a Response APDU.
 	LenResponseTrailer int    = 2
 	packageTag         string = "skythen/apdu"
 )
@@ -55,7 +55,7 @@ type Capdu struct {
 	Ne   int    // Ne represents the total number of expexted response data byte (not LE encoded)
 }
 
-// Rapdu represents a Response APDU
+// Rapdu represents a Response APDU.
 type Rapdu struct {
 	Data []byte // Data represents the data field
 	SW1  byte   // SW1 represents the first byte of a status word
