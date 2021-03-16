@@ -45,7 +45,7 @@ const (
 	packageTag         string = "skythen/apdu"
 )
 
-// Capdu represents a Command APDU
+// Capdu represents a Command APDU.
 type Capdu struct {
 	Cla  byte   // Cla represents the class byte
 	Ins  byte   // Ins represents the class byte
@@ -181,14 +181,14 @@ func ParseCapduHexString(s string) (Capdu, error) {
 
 	tmp, err := hex.DecodeString(s)
 	if err != nil {
-		return Capdu{}, fmt.Errorf("%s: failed to parse Capdu because of hex conversion error - %s", packageTag, err.Error())
+		return Capdu{}, fmt.Errorf("%s: failed to parse Capdu because of hex conversion error - %w", packageTag, err.Error())
 	}
 
 	return ParseCapdu(tmp)
 }
 
 // ParseRapdu parses the byte representation of a Response APDU and returns a Rapdu.
-// The minimum length of a RAPDU is 2 byte and the maximum length is 65544
+// The minimum length of a RAPDU is 2 byte and the maximum length is 65544.
 func ParseRapdu(b []byte) (Rapdu, error) {
 	var (
 		data []byte
@@ -226,7 +226,7 @@ func ParseRapduHexString(s string) (Rapdu, error) {
 
 	tmp, err := hex.DecodeString(s)
 	if err != nil {
-		return Rapdu{}, fmt.Errorf("%s: failed to parse Rapdu because of hex conversion error - %s", packageTag, err.Error())
+		return Rapdu{}, fmt.Errorf("%s: failed to parse Rapdu because of hex conversion error - %w", packageTag, err.Error())
 	}
 
 	return ParseRapdu(tmp)
@@ -378,7 +378,7 @@ func (c Capdu) determineCase() int {
 	return 4
 }
 
-// IsExtendedLength returns true if the CAPDU is of extended length (len of Data > 65535 or Ne > 65536), else false
+// IsExtendedLength returns true if the CAPDU is of extended length (len of Data > 65535 or Ne > 65536), else false.
 func (c Capdu) IsExtendedLength() bool {
 	return c.Ne > MaxLenResponseDataStandard || len(c.Data) > MaxLenCommandDataStandard
 }
