@@ -181,7 +181,7 @@ func ParseCapduHexString(s string) (Capdu, error) {
 
 	tmp, err := hex.DecodeString(s)
 	if err != nil {
-		return Capdu{}, fmt.Errorf("%s: failed to parse Capdu because of hex conversion error - %w", packageTag, err.Error())
+		return Capdu{}, fmt.Errorf("%s: failed to parse Capdu because of hex conversion error - %w", packageTag, err)
 	}
 
 	return ParseCapdu(tmp)
@@ -226,7 +226,7 @@ func ParseRapduHexString(s string) (Rapdu, error) {
 
 	tmp, err := hex.DecodeString(s)
 	if err != nil {
-		return Rapdu{}, fmt.Errorf("%s: failed to parse Rapdu because of hex conversion error - %w", packageTag, err.Error())
+		return Rapdu{}, fmt.Errorf("%s: failed to parse Rapdu because of hex conversion error - %w", packageTag, err)
 	}
 
 	return ParseRapdu(tmp)
