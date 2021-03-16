@@ -2,7 +2,7 @@ package apdu
 
 import (
 	"bytes"
-	"reflect"
+	"github.com/google/go-cmp/cmp"
 	"testing"
 )
 
@@ -95,15 +95,17 @@ func TestParseCapdu(t *testing.T) {
 			received, err := ParseCapdu(tc.inputBytes)
 			if err != nil && !tc.expectError {
 				t.Errorf("Expected: no error, got: error(%v)", err.Error())
+
 				return
 			}
 
 			if err == nil && tc.expectError {
 				t.Errorf("Expected: error, got: no error")
+
 				return
 			}
 
-			if !reflect.DeepEqual(received, tc.expected) {
+			if !cmp.Equal(received, tc.expected) {
 				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
 			}
 		})
@@ -149,15 +151,17 @@ func TestParseCapduHexString(t *testing.T) {
 			received, err := ParseCapduHexString(tc.inputString)
 			if err != nil && !tc.expectError {
 				t.Errorf("Expected: no error, got: error(%v)", err.Error())
+
 				return
 			}
 
 			if err == nil && tc.expectError {
 				t.Errorf("Expected: error, got: no error")
+
 				return
 			}
 
-			if !reflect.DeepEqual(received, tc.expected) {
+			if !cmp.Equal(received, tc.expected) {
 				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
 			}
 		})
@@ -190,15 +194,17 @@ func TestParseRapdu(t *testing.T) {
 			received, err := ParseRapdu(tc.input)
 			if err != nil && !tc.expectError {
 				t.Errorf("Expected: no error, got: error(%v)", err.Error())
+
 				return
 			}
 
 			if err == nil && tc.expectError {
 				t.Errorf("Expected: error, got: no error")
+
 				return
 			}
 
-			if !reflect.DeepEqual(received, tc.expected) {
+			if !cmp.Equal(received, tc.expected) {
 				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
 			}
 		})
@@ -234,15 +240,17 @@ func TestParseRapduHexString(t *testing.T) {
 			received, err := ParseRapduHexString(tc.inputString)
 			if err != nil && !tc.expectError {
 				t.Errorf("Expected: no error, got: error(%v)", err.Error())
+
 				return
 			}
 
 			if err == nil && tc.expectError {
 				t.Errorf("Expected: error, got: no error")
+
 				return
 			}
 
-			if !reflect.DeepEqual(received, tc.expected) {
+			if !cmp.Equal(received, tc.expected) {
 				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
 			}
 		})
@@ -323,7 +331,7 @@ func TestCapdu_Bytes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			received := tc.capdu.Bytes()
 
-			if !reflect.DeepEqual(received, tc.expected) {
+			if !cmp.Equal(received, tc.expected) {
 				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
 			}
 		})
@@ -463,7 +471,7 @@ func TestRapdu_Bytes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			received := tc.rapdu.Bytes()
 
-			if !reflect.DeepEqual(received, tc.expected) {
+			if !cmp.Equal(received, tc.expected) {
 				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
 			}
 		})
