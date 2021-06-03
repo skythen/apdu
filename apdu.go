@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -45,29 +47,29 @@ const (
 	packageTag         string = "skythen/apdu"
 )
 
-// Capdu represents a Command APDU.
+// Capdu is a Command APDU.
 type Capdu struct {
-	Cla  byte   // Cla represents the class byte
-	Ins  byte   // Ins represents the class byte
-	P1   byte   // P1 represents the class byte
-	P2   byte   // P2 represents the class byte
-	Data []byte // Data represents the data field
-	Ne   int    // Ne represents the total number of expexted response data byte (not LE encoded)
+	Cla  byte   // Cla is the class byte.
+	Ins  byte   // Ins is the instruction byte.
+	P1   byte   // P1 is the p1 byte.
+	P2   byte   // P2 is the p2 byte.
+	Data []byte // Data is the data field.
+	Ne   int    // Ne is the total number of expected response data byte (not LE encoded).
 }
 
-// Rapdu represents a Response APDU.
+// Rapdu is a Response APDU.
 type Rapdu struct {
-	Data []byte // Data represents the data field
-	SW1  byte   // SW1 represents the first byte of a status word
-	SW2  byte   // SW2 represents the second byte of a status word
+	Data []byte // Data is the data field.
+	SW1  byte   // SW1 is the first byte of a status word.
+	SW2  byte   // SW2 is the second byte of a status word.
 }
 
-// ParseCapdu parses the byte representation of a Command APDU and returns a Capdu.
+// ParseCapdu parses a Command APDU (CAPDU) and returns a Capdu.
 // The minimum length of a CAPDU is 4 byte (Case 1) and the maximum length is 65544 (Extended Length Case 4)
 // While parsing it is checked if the Lc, if present, indicates the correct data length.
 func ParseCapdu(c []byte) (Capdu, error) {
 	if len(c) < LenHeader || len(c) > 65544 {
-		return Capdu{}, fmt.Errorf("%s: failed to parse Capdu because of invalid length - a CAPDU must consist of at least 4 byte and maximum of 65544 byte, got %d", packageTag, len(c))
+		return Capdu{}, errors.Errorf("%s: invalid length - CAPDU must consist of at least 4 byte and maximum of 65544 byte, got %d", packageTag, len(c))
 	}
 
 	// CASE 1 command: only HEADER
@@ -87,22 +89,25 @@ func ParseCapdu(c []byte) (Capdu, error) {
 }
 
 func parseCapduStandardLength(c []byte) (Capdu, error) {
+	ne := 0
 	// STANDARD CASE 2 command: HEADER | LE
 	if len(c) == LenHeader+LenLCStandard {
-		le := int(c[OffsetLcStandard]) // in this case, no LC is present
-		if le == 0 {
+		// in this case, no LC is present
+		ne = int(c[OffsetLcStandard])
+
+		if ne == 0 {
 			return Capdu{Cla: c[OffsetCla], Ins: c[OffsetIns], P1: c[OffsetP1], P2: c[OffsetP2], Data: nil, Ne: MaxLenResponseDataStandard}, nil
 		}
 
-		return Capdu{Cla: c[OffsetCla], Ins: c[OffsetIns], P1: c[OffsetP1], P2: c[OffsetP2], Data: nil, Ne: le}, nil
+		return Capdu{Cla: c[OffsetCla], Ins: c[OffsetIns], P1: c[OffsetP1], P2: c[OffsetP2], Data: nil, Ne: ne}, nil
 	}
 
 	bodyLen := len(c) - LenHeader
 
-	// check if lc indicates length which is not out of bounds
+	// check if lc indicates valid length
 	lc := int(c[OffsetLcStandard])
 	if lc != bodyLen-LenLCStandard && lc != bodyLen-LenLCStandard-1 {
-		return Capdu{}, fmt.Errorf("%s: failed to parse Capdu because of invalid LC value - LC indicates length %d but body length after LC is %d", packageTag, lc, bodyLen-LenLCStandard)
+		return Capdu{}, errors.Errorf("%s: invalid LC value - LC indicates length %d", packageTag, lc)
 	}
 
 	data := c[OffsetCdataStandard : OffsetCdataStandard+lc]
@@ -113,10 +118,7 @@ func parseCapduStandardLength(c []byte) (Capdu, error) {
 	}
 
 	// STANDARD CASE 4 command: HEADER | LC | DATA | LE
-	var ne int
-
-	le := int(c[len(c)-1]) // get last byte
-	if le == 0 {
+	if le := int(c[len(c)-1]); le == 0 {
 		ne = MaxLenResponseDataStandard
 	} else {
 		ne = le
@@ -127,8 +129,9 @@ func parseCapduStandardLength(c []byte) (Capdu, error) {
 
 func parseCapduExtendedLength(c []byte) (Capdu, error) {
 	// EXTENDED CASE 2 command: HEADER | LE
-	if len(c) == LenHeader+LenLCExtended { // in this case no LC is present, but the two byte LE with leading zero byte
-		var ne int
+	// in this case no LC is present, but the two byte LE with leading zero byte
+	if len(c) == LenHeader+LenLCExtended {
+		ne := 0
 
 		le := int(binary.BigEndian.Uint16(c[OffsetLcExtended:]))
 
@@ -145,7 +148,7 @@ func parseCapduExtendedLength(c []byte) (Capdu, error) {
 
 	lc := int(binary.BigEndian.Uint16(c[OffsetLcExtended : OffsetLcExtended+2]))
 	if lc != bodyLen-LenLCExtended && lc != bodyLen-LenLCExtended-2 {
-		return Capdu{}, fmt.Errorf("%s: failed to parse Capdu because of invalid LC value - LC indicates data length %d but body length after LC is %d", packageTag, lc, bodyLen-LenLCExtended)
+		return Capdu{}, errors.Errorf("%s: invalid LC value - LC indicates data length %d", packageTag, lc)
 	}
 
 	data := c[OffsetCdataExtended : OffsetCdataExtended+lc]
@@ -156,9 +159,9 @@ func parseCapduExtendedLength(c []byte) (Capdu, error) {
 	}
 
 	// EXTENDED CASE 4 command: HEADER | LC | DATA | LE
-	var ne int
+	ne := 0
 
-	le := int(binary.BigEndian.Uint16(c[len(c)-2:])) // get last two bytes
+	le := int(binary.BigEndian.Uint16(c[len(c)-2:]))
 
 	if le == 0x00 {
 		ne = MaxLenResponseDataExtended
@@ -172,22 +175,22 @@ func parseCapduExtendedLength(c []byte) (Capdu, error) {
 // ParseCapduHexString decodes the hex-string representation of a Command APDU, calls ParseCapdu and returns a Capdu.
 func ParseCapduHexString(s string) (Capdu, error) {
 	if len(s)%2 != 0 {
-		return Capdu{}, fmt.Errorf("%s: failed to parse Capdu because of uneven number of hex characters", packageTag)
+		return Capdu{}, errors.Errorf("%s: uneven number of hex characters", packageTag)
 	}
 
 	if len(s) < 8 || len(s) > 131088 {
-		return Capdu{}, fmt.Errorf("%s: failed to parse Capdu because of invalid length of hex string - a CAPDU must consist of at least 4 byte and maximum of 65544 byte, got %d", packageTag, len(s)/2)
+		return Capdu{}, errors.Errorf("%s: invalid length of hex string - a CAPDU must consist of at least 4 byte and maximum of 65544 byte, got %d", packageTag, len(s)/2)
 	}
 
-	tmp, err := hex.DecodeString(s)
+	b, err := hex.DecodeString(s)
 	if err != nil {
-		return Capdu{}, fmt.Errorf("%s: failed to parse Capdu because of hex conversion error - %w", packageTag, err)
+		return Capdu{}, errors.Wrap(err, fmt.Sprintf("%s: hex conversion error", packageTag))
 	}
 
-	return ParseCapdu(tmp)
+	return ParseCapdu(b)
 }
 
-// ParseRapdu parses the byte representation of a Response APDU and returns a Rapdu.
+// ParseRapdu parses a Response APDU and returns a Rapdu.
 // The minimum length of a RAPDU is 2 byte and the maximum length is 65544.
 func ParseRapdu(b []byte) (Rapdu, error) {
 	var (
@@ -197,7 +200,7 @@ func ParseRapdu(b []byte) (Rapdu, error) {
 	)
 
 	if len(b) < LenResponseTrailer || len(b) > 65538 {
-		return Rapdu{}, fmt.Errorf("%s: failed to parse Rapdu because of invalid length - a RAPDU must consist of at least 2 byte and maximum of 65538 byte, got %d", packageTag, len(b))
+		return Rapdu{}, errors.Errorf("%s: invalid length - a RAPDU must consist of at least 2 byte and maximum of 65538 byte, got %d", packageTag, len(b))
 	}
 
 	if len(b) == LenResponseTrailer {
@@ -217,43 +220,39 @@ func ParseRapdu(b []byte) (Rapdu, error) {
 // ParseRapduHexString decodes the hex-string representation of a Response APDU, calls ParseRapdu and returns a Rapdu.
 func ParseRapduHexString(s string) (Rapdu, error) {
 	if len(s)%2 != 0 {
-		return Rapdu{}, fmt.Errorf("%s: failed to parse Rapdu because of uneven number of hex characters", packageTag)
+		return Rapdu{}, errors.Errorf("%s: uneven number of hex characters", packageTag)
 	}
 
 	if len(s) < 4 || len(s) > 131076 {
-		return Rapdu{}, fmt.Errorf("%s: failed to parse Rapdu because of invalid length of hex string - a RAPDU must consist of at least 2 byte and maximum of 65538 byte, got %d", packageTag, len(s)/2)
+		return Rapdu{}, errors.Errorf("%s: invalid length of hex string - a RAPDU must consist of at least 2 byte and maximum of 65538 byte, got %d", packageTag, len(s)/2)
 	}
 
 	tmp, err := hex.DecodeString(s)
 	if err != nil {
-		return Rapdu{}, fmt.Errorf("%s: failed to parse Rapdu because of hex conversion error - %w", packageTag, err)
+		return Rapdu{}, errors.Wrap(err, fmt.Sprintf("%s: hex conversion error", packageTag))
 	}
 
 	return ParseRapdu(tmp)
 }
 
 // Bytes returns the byte representation of the CAPDU.
-// Case and format (standard/extended) of the CAPDU are inferred and applied automatically.
 // The upper limit for the length of Capdu.Data is 65535 and 65536 for Capdu.Ne - values that exceed these limits are truncated.
-// This is to avoid returning errors and to make working with APDUs more convenient.
 func (c Capdu) Bytes() []byte {
 	var (
 		dataLen int
 		ne      int
+		result  []byte
 	)
-
-	result := make([]byte, 0)
-
-	result = append(result, []byte{c.Cla, c.Ins, c.P1, c.P2}...)
 
 	ca := c.determineCase()
 
-	// CASE 1: HEADER
-	if ca == 1 {
-		return result
-	}
+	header := []byte{c.Cla, c.Ins, c.P1, c.P2}
+	dataLen = len(c.Data)
 
-	if ca == 2 {
+	switch ca {
+	case 1:
+		return header
+	case 2:
 		// CASE 2: HEADER | LE
 		if c.Ne > MaxLenResponseDataStandard {
 			// extended length format
@@ -273,12 +272,17 @@ func (c Capdu) Bytes() []byte {
 				le[2] = (byte)(c.Ne & 0xFF)
 			}
 
+			result = make([]byte, 0, LenHeader+LenLCExtended)
+			result = append(result, header...)
 			result = append(result, le...)
 
 			return result
 		}
 
 		//standard format
+		result = make([]byte, 0, LenHeader+LenLCStandard)
+		result = append(result, header...)
+
 		if c.Ne == MaxLenResponseDataStandard {
 			result = append(result, 0x00)
 
@@ -288,11 +292,7 @@ func (c Capdu) Bytes() []byte {
 		result = append(result, byte(c.Ne))
 
 		return result
-	}
-
-	dataLen = len(c.Data)
-
-	if ca == 3 {
+	case 3:
 		// CASE 3: HEADER | LC | DATA
 		if len(c.Data) > MaxLenCommandDataStandard {
 			// truncate data if it exceeds max length
@@ -305,6 +305,8 @@ func (c Capdu) Bytes() []byte {
 			lc[1] = (byte)((dataLen >> 8) & 0xFF)
 			lc[2] = (byte)(dataLen & 0xFF)
 
+			result = make([]byte, 0, LenHeader+LenLCExtended+dataLen)
+			result = append(result, header...)
 			result = append(result, lc...)
 			result = append(result, c.Data[:dataLen]...)
 
@@ -312,6 +314,8 @@ func (c Capdu) Bytes() []byte {
 		}
 
 		//standard format
+		result = make([]byte, 0, LenHeader+1+dataLen)
+		result = append(result, header...)
 		result = append(result, byte(dataLen))
 		result = append(result, c.Data...)
 
@@ -333,6 +337,10 @@ func (c Capdu) Bytes() []byte {
 			ne = c.Ne
 		}
 
+		lc := make([]byte, LenLCExtended) // first byte is zero byte
+		lc[1] = (byte)((dataLen >> 8) & 0xFF)
+		lc[2] = (byte)(dataLen & 0xFF)
+
 		le := make([]byte, 2)
 
 		if ne == MaxLenResponseDataExtended {
@@ -343,10 +351,8 @@ func (c Capdu) Bytes() []byte {
 			le[1] = (byte)(c.Ne & 0xFF)
 		}
 
-		lc := make([]byte, LenLCExtended) // first byte is zero byte
-		lc[1] = (byte)((dataLen >> 8) & 0xFF)
-		lc[2] = (byte)(dataLen & 0xFF)
-
+		result = make([]byte, 0, LenHeader+LenLCExtended+dataLen+len(le))
+		result = append(result, header...)
 		result = append(result, lc...)
 		result = append(result, c.Data[:dataLen]...)
 		result = append(result, le...)
@@ -355,6 +361,8 @@ func (c Capdu) Bytes() []byte {
 	}
 
 	//standard format
+	result = make([]byte, 0, LenHeader+LenLCStandard+dataLen+1)
+	result = append(result, header...)
 	result = append(result, byte(dataLen))
 	result = append(result, c.Data...)
 	result = append(result, byte(c.Ne))

@@ -2,8 +2,9 @@ package apdu
 
 import (
 	"bytes"
-	"github.com/google/go-cmp/cmp"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestParseCapdu(t *testing.T) {
