@@ -1,258 +1,284 @@
 package apdu
 
 import (
-	"bytes"
+	"reflect"
 	"testing"
-
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestParseCapdu(t *testing.T) {
-	tests := []struct {
-		name        string
-		inputBytes  []byte
-		expected    Capdu
-		expectError bool
-	}{
-		{name: "Unhappy path: invalid length",
-			inputBytes:  []byte{0x00, 0xA4, 0x04},
-			expected:    Capdu{},
-			expectError: true,
-		},
-		{name: "Unhappy path: standard length LC too big",
-			inputBytes:  []byte{0x00, 0xA4, 0x04, 0x01, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08},
-			expected:    Capdu{},
-			expectError: true,
-		},
-		{name: "Unhappy path: extended length LC too big",
-			inputBytes:  []byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0x00, 0x05, 0x01, 0x02, 0x03, 0x04},
-			expected:    Capdu{},
-			expectError: true,
-		},
-		{name: "Unhappy path: extended length LC too small",
-			inputBytes:  []byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0x00, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08},
-			expected:    Capdu{},
-			expectError: true,
-		},
-		{name: "Happy path: Case 1",
-			inputBytes:  []byte{0x00, 0xA4, 0x04, 0x00},
-			expected:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x00, Ne: 0},
-			expectError: false,
-		},
-		{name: "Happy path: Case 2 standard length LE equal zero",
-			inputBytes:  []byte{0x00, 0xA4, 0x04, 0x00, 0x00},
-			expected:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x00, Ne: 256},
-			expectError: false,
-		},
-		{name: "Happy path: Case 2 standard length LE unequal zero",
-			inputBytes:  []byte{0x00, 0xA4, 0x04, 0x00, 0x05},
-			expected:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x00, Ne: 5},
-			expectError: false,
-		},
-		{name: "Happy path: Case 2 extended length LE equal zero",
-			inputBytes:  []byte{0x00, 0xA4, 0x04, 0x00, 0x00, 0x00, 0x00},
-			expected:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x00, Ne: 65536},
-			expectError: false,
-		},
-		{name: "Happy path: Case 2 extended length LE unequal zero",
-			inputBytes:  []byte{0x00, 0xA4, 0x04, 0x00, 0x00, 0x01, 0x01},
-			expected:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x00, Ne: 257},
-			expectError: false,
-		},
-		{name: "Happy path: Case 3 standard length",
-			inputBytes:  []byte{0x00, 0xA4, 0x04, 0x00, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05},
-			expected:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x00, Data: []byte{0x01, 0x02, 0x03, 0x04, 0x05}, Ne: 0},
-			expectError: false,
-		},
-		{name: "Happy path: extended length CASE 3",
-			inputBytes:  []byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0x00, 0x03, 0x01, 0x02, 0x03},
-			expected:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: []byte{0x01, 0x02, 0x03}, Ne: 0},
-			expectError: false,
-		},
-		{name: "Happy path: Case 4 standard length  LE equal zero",
-			inputBytes:  []byte{0x00, 0xA4, 0x04, 0x00, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05, 0x00},
-			expected:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x00, Data: []byte{0x01, 0x02, 0x03, 0x04, 0x05}, Ne: 256},
-			expectError: false,
-		},
-		{name: "Happy path: Case 4 standard length  LE unequal zero",
-			inputBytes:  []byte{0x00, 0xA4, 0x04, 0x00, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05, 0x20},
-			expected:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x00, Data: []byte{0x01, 0x02, 0x03, 0x04, 0x05}, Ne: 32},
-			expectError: false,
-		},
-		{name: "Happy path: extended length CASE 4 LE equal zero",
-			inputBytes:  []byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0x00, 0x03, 0x01, 0x02, 0x03, 0x00, 0x00},
-			expected:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: []byte{0x01, 0x02, 0x03}, Ne: 65536},
-			expectError: false,
-		},
-		{name: "Happy path: extended length CASE 4 LE unequal zero",
-			inputBytes:  []byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0x00, 0x03, 0x01, 0x02, 0x03, 0x01, 0x01},
-			expected:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: []byte{0x01, 0x02, 0x03}, Ne: 257},
-			expectError: false,
-		},
+	type args struct {
+		c []byte
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			received, err := ParseCapdu(tc.inputBytes)
-			if err != nil && !tc.expectError {
-				t.Errorf("Expected: no error, got: error(%v)", err.Error())
+	tests := []struct {
+		name    string
+		args    args
+		want    *Capdu
+		wantErr bool
+	}{
+		{
+			name:    "error: invalid length",
+			args:    args{c: []byte{0x00, 0xA4, 0x04}},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "error: standard length LC too big",
+			args:    args{[]byte{0x00, 0xA4, 0x04, 0x01, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "error: extended length LC too big",
+			args:    args{[]byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0x00, 0x05, 0x01, 0x02, 0x03, 0x04}},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "error: extended length LC too small",
+			args:    args{[]byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0x00, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "Case 1",
+			args:    args{[]byte{0x00, 0xA4, 0x04, 0x00}},
+			want:    &Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x00, Ne: 0},
+			wantErr: false,
+		},
+		{
+			name:    "Case 2 standard length LE equal zero",
+			args:    args{[]byte{0x00, 0xA4, 0x04, 0x00, 0x00}},
+			want:    &Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x00, Ne: 256},
+			wantErr: false,
+		},
+		{
+			name:    "Case 2 standard length LE unequal zero",
+			args:    args{[]byte{0x00, 0xA4, 0x04, 0x00, 0x05}},
+			want:    &Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x00, Ne: 5},
+			wantErr: false,
+		},
+		{
+			name:    "Case 2 extended length LE equal zero",
+			args:    args{[]byte{0x00, 0xA4, 0x04, 0x00, 0x00, 0x00, 0x00}},
+			want:    &Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x00, Ne: 65536},
+			wantErr: false,
+		},
+		{
+			name:    "Case 2 extended length LE unequal zero",
+			args:    args{[]byte{0x00, 0xA4, 0x04, 0x00, 0x00, 0x01, 0x01}},
+			want:    &Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x00, Ne: 257},
+			wantErr: false,
+		},
+		{
+			name:    "Case 3 standard length",
+			args:    args{[]byte{0x00, 0xA4, 0x04, 0x00, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05}},
+			want:    &Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x00, Data: []byte{0x01, 0x02, 0x03, 0x04, 0x05}, Ne: 0},
+			wantErr: false,
+		},
+		{
+			name:    "extended length CASE 3",
+			args:    args{[]byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0x00, 0x03, 0x01, 0x02, 0x03}},
+			want:    &Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: []byte{0x01, 0x02, 0x03}, Ne: 0},
+			wantErr: false,
+		},
+		{
+			name:    "Case 4 standard length  LE equal zero",
+			args:    args{[]byte{0x00, 0xA4, 0x04, 0x00, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05, 0x00}},
+			want:    &Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x00, Data: []byte{0x01, 0x02, 0x03, 0x04, 0x05}, Ne: 256},
+			wantErr: false,
+		},
+		{
+			name:    "Case 4 standard length  LE unequal zero",
+			args:    args{[]byte{0x00, 0xA4, 0x04, 0x00, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05, 0x20}},
+			want:    &Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x00, Data: []byte{0x01, 0x02, 0x03, 0x04, 0x05}, Ne: 32},
+			wantErr: false,
+		},
+		{
+			name:    "extended length CASE 4 LE equal zero",
+			args:    args{[]byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0x00, 0x03, 0x01, 0x02, 0x03, 0x00, 0x00}},
+			want:    &Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: []byte{0x01, 0x02, 0x03}, Ne: 65536},
+			wantErr: false,
+		},
+		{
+			name:    "extended length CASE 4 LE unequal zero",
+			args:    args{[]byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0x00, 0x03, 0x01, 0x02, 0x03, 0x01, 0x01}},
+			want:    &Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: []byte{0x01, 0x02, 0x03}, Ne: 257},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseCapdu(tt.args.c)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseCapdu() error = %v, wantErr %v", err, tt.wantErr)
 
 				return
 			}
-
-			if err == nil && tc.expectError {
-				t.Errorf("Expected: error, got: no error")
-
-				return
-			}
-
-			if !cmp.Equal(received, tc.expected) {
-				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ParseCapdu() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
 func TestParseCapduHexString(t *testing.T) {
-	longData := make([]byte, 300)
-	for i := range longData {
-		longData[i] = 0xFF
+	type args struct {
+		s string
 	}
 
 	tests := []struct {
-		name        string
-		inputString string
-		expected    Capdu
-		expectError bool
+		name    string
+		args    args
+		want    *Capdu
+		wantErr bool
 	}{
-		{name: "Unhappy path: uneven number bytes",
-			inputString: "000102030",
-			expected:    Capdu{},
-			expectError: true,
+		{
+			name:    "error: uneven number bytes",
+			args:    args{s: "000102030"},
+			want:    nil,
+			wantErr: true,
 		},
-		{name: "Unhappy path: invalid length",
-			inputString: "000102",
-			expected:    Capdu{},
-			expectError: true,
+		{
+			name:    "error: invalid length",
+			args:    args{s: "000102"},
+			want:    nil,
+			wantErr: true,
 		},
-		{name: "Unhappy path: invalid characters",
-			inputString: "00010203GG",
-			expected:    Capdu{},
-			expectError: true,
+		{
+			name:    "error: invalid characters",
+			args:    args{"s:00010203GG"},
+			want:    nil,
+			wantErr: true,
 		},
-		{name: "Happy path: standard length CASE 1",
-			inputString: "00A40401",
-			expected:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 0},
-			expectError: false,
+		{
+			name:    "standard length CASE 1",
+			args:    args{s: "00A40401"},
+			want:    &Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 0},
+			wantErr: false,
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			received, err := ParseCapduHexString(tc.inputString)
-			if err != nil && !tc.expectError {
-				t.Errorf("Expected: no error, got: error(%v)", err.Error())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseCapduHexString(tt.args.s)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseCapduHexString() error = %v, wantErr %v", err, tt.wantErr)
 
 				return
 			}
-
-			if err == nil && tc.expectError {
-				t.Errorf("Expected: error, got: no error")
-
-				return
-			}
-
-			if !cmp.Equal(received, tc.expected) {
-				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ParseCapduHexString() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
 func TestParseRapdu(t *testing.T) {
-	tests := []struct {
-		name        string
-		input       []byte
-		expected    Rapdu
-		expectError bool
-	}{
-		{name: "Unhappy path: invalid length too small",
-			input:    []byte{0x6A},
-			expected: Rapdu{}, expectError: true},
-		{name: "Unhappy path: invalid length too big",
-			input:    make([]byte, 65539),
-			expected: Rapdu{}, expectError: true},
-		{name: "Happy path: only SW",
-			input:    []byte{0x6A, 0x80},
-			expected: Rapdu{Data: nil, SW1: 0x6A, SW2: 0x80}, expectError: false},
-		{name: "Happy path: data and SW",
-			input:    []byte{0x01, 0x02, 0x03, 0x90, 0x00},
-			expected: Rapdu{Data: []byte{0x01, 0x02, 0x03}, SW1: 0x90, SW2: 0x00}, expectError: false},
+	type args struct {
+		b []byte
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			received, err := ParseRapdu(tc.input)
-			if err != nil && !tc.expectError {
-				t.Errorf("Expected: no error, got: error(%v)", err.Error())
+	tests := []struct {
+		name    string
+		args    args
+		want    *Rapdu
+		wantErr bool
+	}{
+		{
+			name:    "error: invalid length too small",
+			args:    args{b: []byte{0x6A}},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "error: invalid length too big",
+			args:    args{b: make([]byte, 65539)},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "only SW",
+			args:    args{b: []byte{0x6A, 0x80}},
+			want:    &Rapdu{Data: nil, SW1: 0x6A, SW2: 0x80},
+			wantErr: false,
+		},
+		{
+			name:    "data and SW",
+			args:    args{b: []byte{0x01, 0x02, 0x03, 0x90, 0x00}},
+			want:    &Rapdu{Data: []byte{0x01, 0x02, 0x03}, SW1: 0x90, SW2: 0x00},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseRapdu(tt.args.b)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseRapdu() error = %v, wantErr %v", err, tt.wantErr)
 
 				return
 			}
-
-			if err == nil && tc.expectError {
-				t.Errorf("Expected: error, got: no error")
-
-				return
-			}
-
-			if !cmp.Equal(received, tc.expected) {
-				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ParseRapdu() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
 func TestParseRapduHexString(t *testing.T) {
-	tests := []struct {
-		name        string
-		inputString string
-		expected    Rapdu
-		expectError bool
-	}{
-		{name: "Unhappy path: uneven number bytes",
-			inputString: "6A80A",
-			expected:    Rapdu{}, expectError: true},
-		{name: "Unhappy path: invalid length",
-			inputString: "6A",
-			expected:    Rapdu{}, expectError: true},
-		{name: "Unhappy path: invalid characters",
-			inputString: "FFGF6A88",
-			expected:    Rapdu{}, expectError: true},
-		{name: "Happy path: only SW",
-			inputString: "6A80",
-			expected:    Rapdu{Data: nil, SW1: 0x6A, SW2: 0x80}, expectError: false},
-		{name: "Happy path: data and SW",
-			inputString: "0102039000",
-			expected:    Rapdu{Data: []byte{0x01, 0x02, 0x03}, SW1: 0x90, SW2: 0x00}, expectError: false},
+	type args struct {
+		s string
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			received, err := ParseRapduHexString(tc.inputString)
-			if err != nil && !tc.expectError {
-				t.Errorf("Expected: no error, got: error(%v)", err.Error())
+	tests := []struct {
+		name    string
+		args    args
+		want    *Rapdu
+		wantErr bool
+	}{
+		{
+			name:    "error: uneven number bytes",
+			args:    args{s: "6A80A"},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "error: invalid length",
+			args:    args{s: "6A"},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "error: invalid characters",
+			args:    args{s: "FFGF6A88"},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "only SW",
+			args:    args{s: "6A80"},
+			want:    &Rapdu{Data: nil, SW1: 0x6A, SW2: 0x80},
+			wantErr: false,
+		},
+		{
+			name:    "data and SW",
+			args:    args{s: "0102039000"},
+			want:    &Rapdu{Data: []byte{0x01, 0x02, 0x03}, SW1: 0x90, SW2: 0x00},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseRapduHexString(tt.args.s)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseRapduHexString() error = %v, wantErr %v", err, tt.wantErr)
 
 				return
 			}
-
-			if err == nil && tc.expectError {
-				t.Errorf("Expected: error, got: no error")
-
-				return
-			}
-
-			if !cmp.Equal(received, tc.expected) {
-				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ParseRapduHexString() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -264,76 +290,126 @@ func TestCapdu_Bytes(t *testing.T) {
 		extendedData[i] = 0xFF
 	}
 
-	tooExtendedData := append(extendedData, 0xFF)
+	tooExtendedData := make([]byte, 65536)
 
-	tests := []struct {
-		name     string
-		capdu    Capdu
-		expected []byte
-	}{
-		{name: "standard length CASE 1",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 0},
-			expected: []byte{0x00, 0xA4, 0x04, 0x01},
-		},
-		{name: "standard length CASE 2 LE unequal zero",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 255},
-			expected: []byte{0x00, 0xA4, 0x04, 0x01, 0xFF},
-		},
-		{name: "standard length CASE 2 LE equal zero",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 256},
-			expected: []byte{0x00, 0xA4, 0x04, 0x01, 0x00},
-		},
-		{name: "standard length CASE 3",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: []byte{0x01, 0x02, 0x3}, Ne: 0},
-			expected: []byte{0x00, 0xA4, 0x04, 0x01, 0x03, 0x01, 0x02, 0x03},
-		},
-		{name: "standard length CASE 4",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: []byte{0x01, 0x02}, Ne: 3},
-			expected: []byte{0x00, 0xA4, 0x04, 0x01, 0x02, 0x01, 0x02, 0x03},
-		},
-		{name: "extended length CASE 2 LE unequal zero",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 65535},
-			expected: []byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0xFF, 0xFF},
-		},
-		{name: "extended length CASE 2 LE equal zero",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 65536},
-			expected: []byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0x00, 0x00},
-		},
-		{name: "truncate ne extended length CASE 2",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 65537},
-			expected: []byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0x00, 0x00},
-		},
-		{name: "extended length CASE 3",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: extendedData, Ne: 0},
-			expected: append([]byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0xFF, 0xFF}, extendedData...),
-		},
-		{name: "truncate data extended length CASE 3",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: tooExtendedData, Ne: 0},
-			expected: append([]byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0xFF, 0xFF}, extendedData...)},
-		{name: "extended length CASE 4 LE unequal zero",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: extendedData, Ne: 65535},
-			expected: append(append([]byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0xFF, 0xFF}, extendedData...), []byte{0xFF, 0xFF}...),
-		},
-		{name: "extended length CASE 4 LE equal zero",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: extendedData, Ne: 65536},
-			expected: append(append([]byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0xFF, 0xFF}, extendedData...), []byte{0x00, 0x00}...),
-		},
-		{name: "truncate data extended length CASE 4",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: tooExtendedData, Ne: 255},
-			expected: append(append([]byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0xFF, 0xFF}, extendedData...), []byte{0x00, 0xFF}...),
-		},
-		{name: "truncate ne extended length CASE 4",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: tooExtendedData, Ne: 65537},
-			expected: append(append([]byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0xFF, 0xFF}, extendedData...), []byte{0x00, 0x00}...),
-		},
+	type fields struct {
+		Cla  byte
+		Ins  byte
+		P1   byte
+		P2   byte
+		Data []byte
+		Ne   int
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			received := tc.capdu.Bytes()
+	tests := []struct {
+		name    string
+		fields  fields
+		want    []byte
+		wantErr bool
+	}{
+		{
+			name:    "standard length CASE 1",
+			fields:  fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 0},
+			want:    []byte{0x00, 0xA4, 0x04, 0x01},
+			wantErr: false,
+		},
+		{
+			name:    "standard length CASE 2 LE unequal zero",
+			fields:  fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 255},
+			want:    []byte{0x00, 0xA4, 0x04, 0x01, 0xFF},
+			wantErr: false,
+		},
+		{
+			name:    "standard length CASE 2 LE equal zero",
+			fields:  fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 256},
+			want:    []byte{0x00, 0xA4, 0x04, 0x01, 0x00},
+			wantErr: false,
+		},
+		{
+			name:    "standard length CASE 3",
+			fields:  fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: []byte{0x01, 0x02, 0x3}, Ne: 0},
+			want:    []byte{0x00, 0xA4, 0x04, 0x01, 0x03, 0x01, 0x02, 0x03},
+			wantErr: false,
+		},
+		{
+			name:    "standard length CASE 4",
+			fields:  fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: []byte{0x01, 0x02}, Ne: 3},
+			want:    []byte{0x00, 0xA4, 0x04, 0x01, 0x02, 0x01, 0x02, 0x03},
+			wantErr: false,
+		},
+		{
+			name:    "extended length CASE 2 LE unequal zero",
+			fields:  fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 65535},
+			want:    []byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0xFF, 0xFF},
+			wantErr: false,
+		},
+		{
+			name:    "extended length CASE 2 LE equal zero",
+			fields:  fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 65536},
+			want:    []byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0x00, 0x00},
+			wantErr: false,
+		},
+		{
+			name:    "error: ne invalid CASE 2",
+			fields:  fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 65537},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "extended length CASE 3",
+			fields:  fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: extendedData, Ne: 0},
+			want:    append([]byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0xFF, 0xFF}, extendedData...),
+			wantErr: false,
+		},
+		{
+			name:    "error: invalid length CASE 3",
+			fields:  fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: tooExtendedData, Ne: 0},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "extended length CASE 4 LE unequal zero",
+			fields:  fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: extendedData, Ne: 65535},
+			want:    append(append([]byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0xFF, 0xFF}, extendedData...), []byte{0xFF, 0xFF}...),
+			wantErr: false,
+		},
+		{
+			name:    "extended length CASE 4 LE equal zero",
+			fields:  fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: extendedData, Ne: 65536},
+			want:    append(append([]byte{0x00, 0xA4, 0x04, 0x01, 0x00, 0xFF, 0xFF}, extendedData...), []byte{0x00, 0x00}...),
+			wantErr: false,
+		},
+		{
+			name:    "error: data extended length CASE 4",
+			fields:  fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: tooExtendedData, Ne: 255},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "error: ne invalid length CASE 4",
+			fields:  fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: tooExtendedData, Ne: 65537},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Capdu{
+				Cla:  tt.fields.Cla,
+				Ins:  tt.fields.Ins,
+				P1:   tt.fields.P1,
+				P2:   tt.fields.P2,
+				Data: tt.fields.Data,
+				Ne:   tt.fields.Ne,
+			}
+			got, err := c.Bytes()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Bytes() error = %v, wantErr %v", err, tt.wantErr)
 
-			if !cmp.Equal(received, tc.expected) {
-				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Bytes() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -350,94 +426,102 @@ func TestCapdu_IsExtendedLength(t *testing.T) {
 		standardData[i] = 0xFF
 	}
 
+	type fields struct {
+		Cla  byte
+		Ins  byte
+		P1   byte
+		P2   byte
+		Data []byte
+		Ne   int
+	}
+
 	tests := []struct {
-		name     string
-		capdu    Capdu
-		expected bool
+		name   string
+		fields fields
+		want   bool
 	}{
-		{name: "extended length ne",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 257},
-			expected: true,
+		{
+			name:   "extended length ne",
+			fields: fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 257},
+			want:   true,
 		},
-		{name: "extended length data",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: extendedData, Ne: 256},
-			expected: true,
+		{
+			name:   "extended length data",
+			fields: fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: extendedData, Ne: 256},
+			want:   true,
 		},
-		{name: "standard length",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: standardData, Ne: 256},
-			expected: false,
+		{
+			name:   "standard length",
+			fields: fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: standardData, Ne: 256},
+			want:   false,
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			received := tc.capdu.IsExtendedLength()
-
-			if received != tc.expected {
-				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Capdu{
+				Cla:  tt.fields.Cla,
+				Ins:  tt.fields.Ins,
+				P1:   tt.fields.P1,
+				P2:   tt.fields.P2,
+				Data: tt.fields.Data,
+				Ne:   tt.fields.Ne,
 			}
-		})
-	}
-}
-
-func TestCapdu_Lc(t *testing.T) {
-	extendedData := make([]byte, 256)
-	for i := range extendedData {
-		extendedData[i] = 0xFF
-	}
-
-	standardData := make([]byte, 255)
-	for i := range standardData {
-		standardData[i] = 0xFF
-	}
-
-	tests := []struct {
-		name     string
-		capdu    Capdu
-		expected []byte
-	}{
-		{name: "no lc",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Ne: 256},
-			expected: nil,
-		},
-		{name: "extended length lc",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: extendedData, Ne: 257},
-			expected: []byte{0x00, 0x01, 0x00},
-		},
-		{name: "standard length lc",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: standardData, Ne: 256},
-			expected: []byte{0xFF},
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			received := tc.capdu.Lc()
-
-			if !bytes.Equal(received, tc.expected) {
-				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
+			if got := c.IsExtendedLength(); got != tt.want {
+				t.Errorf("IsExtendedLength() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
 func TestCapdu_String(t *testing.T) {
-	tests := []struct {
-		name     string
-		capdu    Capdu
-		expected string
-	}{
-		{name: "to string",
-			capdu:    Capdu{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: []byte{0x01, 0x02}, Ne: 3},
-			expected: "00A4040102010203"},
+	type fields struct {
+		Cla  byte
+		Ins  byte
+		P1   byte
+		P2   byte
+		Data []byte
+		Ne   int
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			received := tc.capdu.String()
+	tests := []struct {
+		name    string
+		fields  fields
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "to string",
+			fields:  fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: []byte{0x01, 0x02}, Ne: 3},
+			want:    "00A4040102010203",
+			wantErr: false,
+		},
+		{
+			name:    "error: invalid ne",
+			fields:  fields{Cla: 0x00, Ins: 0xA4, P1: 0x04, P2: 0x01, Data: []byte{0x01, 0x02}, Ne: 65537},
+			want:    "",
+			wantErr: true,
+		},
+	}
 
-			if received != tc.expected {
-				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Capdu{
+				Cla:  tt.fields.Cla,
+				Ins:  tt.fields.Ins,
+				P1:   tt.fields.P1,
+				P2:   tt.fields.P2,
+				Data: tt.fields.Data,
+				Ne:   tt.fields.Ne,
+			}
+			got, err := c.String()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("String() error = %v, wantErr %v", err, tt.wantErr)
+
+				return
+			}
+			if got != tt.want {
+				t.Errorf("String() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -449,183 +533,433 @@ func TestRapdu_Bytes(t *testing.T) {
 		tooExtendedData[i] = 0xFF
 	}
 
+	type fields struct {
+		Data []byte
+		SW1  byte
+		SW2  byte
+	}
+
 	tests := []struct {
-		name     string
-		rapdu    Rapdu
-		expected []byte
+		name    string
+		fields  fields
+		want    []byte
+		wantErr bool
 	}{
-		{name: "only SW",
-			rapdu:    Rapdu{Data: nil, SW1: 0x6A, SW2: 0x80},
-			expected: []byte{0x6A, 0x80},
+		{
+			name:    "only SW",
+			fields:  fields{Data: nil, SW1: 0x6A, SW2: 0x80},
+			want:    []byte{0x6A, 0x80},
+			wantErr: false,
 		},
-		{name: "data and SW",
-			rapdu:    Rapdu{Data: []byte{0x01, 0x02, 0x03}, SW1: 0x90, SW2: 0x00},
-			expected: []byte{0x01, 0x02, 0x03, 0x90, 0x00},
+		{
+			name:    "data and SW",
+			fields:  fields{Data: []byte{0x01, 0x02, 0x03}, SW1: 0x90, SW2: 0x00},
+			want:    []byte{0x01, 0x02, 0x03, 0x90, 0x00},
+			wantErr: false,
 		},
-		{name: "data and SW, truncate data",
-			rapdu:    Rapdu{Data: tooExtendedData, SW1: 0x90, SW2: 0x00},
-			expected: append(tooExtendedData[:len(tooExtendedData)-1], []byte{0x90, 0x00}...),
+		{
+			name:    "data and SW, truncate data",
+			fields:  fields{Data: tooExtendedData, SW1: 0x90, SW2: 0x00},
+			want:    nil,
+			wantErr: true,
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			received := tc.rapdu.Bytes()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &Rapdu{
+				Data: tt.fields.Data,
+				SW1:  tt.fields.SW1,
+				SW2:  tt.fields.SW2,
+			}
+			got, err := r.Bytes()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Bytes() error = %v, wantErr %v", err, tt.wantErr)
 
-			if !cmp.Equal(received, tc.expected) {
-				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Bytes() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
 func TestRapdu_String(t *testing.T) {
-	tests := []struct {
-		name     string
-		rapdu    Rapdu
-		expected string
-	}{
-		{name: "sw only",
-			rapdu:    Rapdu{Data: []byte{0x01, 0x02, 0x03}, SW1: 0x90, SW2: 0x00},
-			expected: "0102039000"},
+	type fields struct {
+		Data []byte
+		SW1  byte
+		SW2  byte
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			received := tc.rapdu.String()
+	tests := []struct {
+		name    string
+		fields  fields
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "trailer only",
+			fields:  fields{Data: []byte{0x01, 0x02, 0x03}, SW1: 0x90, SW2: 0x00},
+			want:    "0102039000",
+			wantErr: false,
+		},
+		{
+			name:    "error: invalid length",
+			fields:  fields{Data: make([]byte, 65537), SW1: 0x90, SW2: 0x00},
+			want:    "",
+			wantErr: true,
+		},
+	}
 
-			if received != tc.expected {
-				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &Rapdu{
+				Data: tt.fields.Data,
+				SW1:  tt.fields.SW1,
+				SW2:  tt.fields.SW2,
+			}
+			got, err := r.String()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("String() error = %v, wantErr %v", err, tt.wantErr)
+
+				return
+			}
+			if got != tt.want {
+				t.Errorf("String() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
 func TestRapdu_IsSuccess(t *testing.T) {
+	type fields struct {
+		Data []byte
+		SW1  byte
+		SW2  byte
+	}
+
 	tests := []struct {
-		name     string
-		rapdu    Rapdu
-		expected bool
+		name   string
+		fields fields
+		want   bool
 	}{
-		{name: "sw only success",
-			rapdu:    Rapdu{SW1: 0x90, SW2: 0x00},
-			expected: true,
+		{
+			name:   "trailer only success",
+			fields: fields{SW1: 0x90, SW2: 0x00},
+			want:   true,
 		},
-		{name: "sw only success",
-			rapdu:    Rapdu{SW1: 0x61, SW2: 0x10},
-			expected: true,
+		{
+			name:   "trailer only success",
+			fields: fields{SW1: 0x61, SW2: 0x10},
+			want:   true,
 		},
-		{name: "sw only not success",
-			rapdu:    Rapdu{SW1: 0x6A, SW2: 0x88},
-			expected: false,
+		{
+			name:   "trailer only not success",
+			fields: fields{SW1: 0x6A, SW2: 0x88},
+			want:   false,
 		},
-		{name: "sw + data success",
-			rapdu:    Rapdu{Data: []byte{0x01, 0x02, 0x03, 0x04}, SW1: 0x90, SW2: 0x00},
-			expected: true,
+		{
+			name:   "trailer + data success",
+			fields: fields{Data: []byte{0x01, 0x02, 0x03, 0x04}, SW1: 0x90, SW2: 0x00},
+			want:   true,
 		},
-		{name: "sw + data success",
-			rapdu:    Rapdu{Data: []byte{0x01, 0x02, 0x03, 0x04}, SW1: 0x61, SW2: 0x03},
-			expected: true,
+		{
+			name:   "trailer + data success",
+			fields: fields{Data: []byte{0x01, 0x02, 0x03, 0x04}, SW1: 0x61, SW2: 0x03},
+			want:   true,
 		},
-		{name: "sw + data not success",
-			rapdu:    Rapdu{Data: []byte{0x01, 0x02, 0x03, 0x04}, SW1: 0x6A, SW2: 0x88},
-			expected: false,
+		{
+			name:   "trailer + data not success",
+			fields: fields{Data: []byte{0x01, 0x02, 0x03, 0x04}, SW1: 0x6A, SW2: 0x88},
+			want:   false,
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			received := tc.rapdu.IsSuccess()
-
-			if received != tc.expected {
-				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &Rapdu{
+				Data: tt.fields.Data,
+				SW1:  tt.fields.SW1,
+				SW2:  tt.fields.SW2,
+			}
+			if got := r.IsSuccess(); got != tt.want {
+				t.Errorf("IsSuccess() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
 func TestRapdu_IsWarning(t *testing.T) {
+	type fields struct {
+		Data []byte
+		SW1  byte
+		SW2  byte
+	}
+
 	tests := []struct {
-		name     string
-		rapdu    Rapdu
-		expected bool
+		name   string
+		fields fields
+		want   bool
 	}{
-		{name: "warning 0x62",
-			rapdu:    Rapdu{SW1: 0x62, SW2: 0x84},
-			expected: true,
+		{
+			name:   "warning 0x62",
+			fields: fields{SW1: 0x62, SW2: 0x84},
+			want:   true,
 		},
-		{name: "warning 0x63",
-			rapdu:    Rapdu{SW1: 0x63, SW2: 0xC1},
-			expected: true,
+		{
+			name:   "warning 0x63",
+			fields: fields{SW1: 0x63, SW2: 0xC1},
+			want:   true,
 		},
-		{name: "success, not warning",
-			rapdu:    Rapdu{Data: []byte{0x01, 0x02, 0x03, 0x04}, SW1: 0x90, SW2: 0x00},
-			expected: false,
+		{
+			name:   "success, not warning",
+			fields: fields{Data: []byte{0x01, 0x02, 0x03, 0x04}, SW1: 0x90, SW2: 0x00},
+			want:   false,
 		},
-		{name: "error, not warning",
-			rapdu:    Rapdu{SW1: 0x6F, SW2: 0x00},
-			expected: false,
+		{
+			name:   "error, not warning",
+			fields: fields{SW1: 0x6F, SW2: 0x00},
+			want:   false,
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			received := tc.rapdu.IsWarning()
-
-			if received != tc.expected {
-				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &Rapdu{
+				Data: tt.fields.Data,
+				SW1:  tt.fields.SW1,
+				SW2:  tt.fields.SW2,
+			}
+			if got := r.IsWarning(); got != tt.want {
+				t.Errorf("IsWarning() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
 func TestRapdu_IsError(t *testing.T) {
+	type fields struct {
+		Data []byte
+		SW1  byte
+		SW2  byte
+	}
+
 	tests := []struct {
-		name     string
-		rapdu    Rapdu
-		expected bool
+		name   string
+		fields fields
+		want   bool
 	}{
-		{name: "error 0x64",
-			rapdu:    Rapdu{SW1: 0x64, SW2: 0x00},
-			expected: true,
+		{
+			name:   "error 0x64",
+			fields: fields{SW1: 0x64, SW2: 0x00},
+			want:   true,
 		},
-		{name: "error 0x65",
-			rapdu:    Rapdu{SW1: 0x65, SW2: 0x81},
-			expected: true,
+		{
+			name:   "error 0x65",
+			fields: fields{SW1: 0x65, SW2: 0x81},
+			want:   true,
 		},
-		{name: "error 0x67",
-			rapdu:    Rapdu{SW1: 0x67, SW2: 0x00},
-			expected: true,
+		{
+			name:   "error 0x67",
+			fields: fields{SW1: 0x67, SW2: 0x00},
+			want:   true,
 		},
-		{name: "error 0x6A",
-			rapdu:    Rapdu{SW1: 0x6A, SW2: 0x88},
-			expected: true,
+		{
+			name:   "error 0x6A",
+			fields: fields{SW1: 0x6A, SW2: 0x88},
+			want:   true,
 		},
-		{name: "error 0x6F",
-			rapdu:    Rapdu{SW1: 0x6F, SW2: 0x00},
-			expected: true,
+		{
+			name:   "error 0x6F",
+			fields: fields{SW1: 0x6F, SW2: 0x00},
+			want:   true,
 		},
-		{name: "success, not error",
-			rapdu:    Rapdu{Data: []byte{0x01, 0x02, 0x03, 0x04}, SW1: 0x90, SW2: 0x00},
-			expected: false,
+		{
+			name:   "success, not error",
+			fields: fields{Data: []byte{0x01, 0x02, 0x03, 0x04}, SW1: 0x90, SW2: 0x00},
+			want:   false,
 		},
-		{name: "warning, not error",
-			rapdu:    Rapdu{SW1: 0x63, SW2: 0x00},
-			expected: false,
+		{
+			name:   "warning, not error",
+			fields: fields{SW1: 0x63, SW2: 0x00},
+			want:   false,
 		},
-		{name: "no error, 0x66 sw",
-			rapdu:    Rapdu{SW1: 0x66, SW2: 0x00},
-			expected: false,
+		{
+			name:   "no error, 0x66",
+			fields: fields{SW1: 0x66, SW2: 0x00},
+			want:   false,
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			received := tc.rapdu.IsError()
-
-			if received != tc.expected {
-				t.Errorf("Expected: '%v', got: '%v'", tc.expected, received)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &Rapdu{
+				Data: tt.fields.Data,
+				SW1:  tt.fields.SW1,
+				SW2:  tt.fields.SW2,
+			}
+			if got := r.IsError(); got != tt.want {
+				t.Errorf("IsError() = %v, want %v", got, tt.want)
 			}
 		})
 	}
+}
+
+// BENCHMARKS ----------------------------------------------------------------------------------------------------------
+var resultCapdu *Capdu
+
+func benchmarkParseCapdu(by []byte, b *testing.B) {
+	var r *Capdu
+
+	b.ReportAllocs()
+
+	for n := 0; n < b.N; n++ {
+		r, _ = ParseCapdu(by)
+	}
+
+	resultCapdu = r
+}
+
+func BenchmarkParseCapduCase1(b *testing.B) { benchmarkParseCapdu([]byte{0x00, 0xAA, 0xBB, 0xCC}, b) }
+func BenchmarkParseCapduCase2Std(b *testing.B) {
+	benchmarkParseCapdu([]byte{0x00, 0xAA, 0xBB, 0xCC, 0xDD}, b)
+}
+func BenchmarkParseCapduCase3Std(b *testing.B) {
+	benchmarkParseCapdu([]byte{0x00, 0xAA, 0xBB, 0xCC, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05}, b)
+}
+func BenchmarkParseCapduCase4Std(b *testing.B) {
+	benchmarkParseCapdu([]byte{0x00, 0xAA, 0xBB, 0xCC, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05, 0xFF}, b)
+}
+func BenchmarkParseCapduCase2Ext(b *testing.B) {
+	benchmarkParseCapdu([]byte{0x00, 0xAA, 0xBB, 0xCC, 0x00, 0xDD, 0xEE}, b)
+}
+func BenchmarkParseCapduCase3Ext(b *testing.B) {
+	benchmarkParseCapdu([]byte{0x00, 0xAA, 0xBB, 0xCC, 0x00, 0x00, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05}, b)
+}
+func BenchmarkParseCapduCase4Ext(b *testing.B) {
+	benchmarkParseCapdu([]byte{0x00, 0xAA, 0xBB, 0xCC, 0x00, 0x00, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05, 0x00, 0xFF}, b)
+}
+
+func benchmarkParseCapduHexString(s string, b *testing.B) {
+	var r *Capdu
+
+	b.ReportAllocs()
+
+	for n := 0; n < b.N; n++ {
+		r, _ = ParseCapduHexString(s)
+	}
+
+	resultCapdu = r
+}
+
+func BenchmarkParseCapduHexStringCase1(b *testing.B) { benchmarkParseCapduHexString("00AABBCC", b) }
+func BenchmarkParseCapduHexStringCase2Std(b *testing.B) {
+	benchmarkParseCapduHexString("00AABBCCDD", b)
+}
+func BenchmarkParseCapduHexStringCase3Std(b *testing.B) {
+	benchmarkParseCapduHexString("00AABBCC050102030405", b)
+}
+func BenchmarkParseCapduHexStringCase4Std(b *testing.B) {
+	benchmarkParseCapduHexString("00AABBCC050102030405FF", b)
+}
+func BenchmarkParseCapduHexStringCase2Ext(b *testing.B) {
+	benchmarkParseCapduHexString("00AABBCC00DDEE", b)
+}
+func BenchmarkParseCapduHexStringCase3Ext(b *testing.B) {
+	benchmarkParseCapduHexString("00AABBCC0000050102030405", b)
+}
+func BenchmarkParseCapduHexStringCase4Ext(b *testing.B) {
+	benchmarkParseCapduHexString("00AABBCC000005010203040500FF", b)
+}
+
+var resultBytes []byte
+
+func benchmarkCapduBytes(c Capdu, b *testing.B) {
+	var r []byte
+
+	b.ReportAllocs()
+
+	for n := 0; n < b.N; n++ {
+		r, _ = c.Bytes()
+	}
+
+	resultBytes = r
+}
+
+func BenchmarkCapdu_BytesCase1(b *testing.B) {
+	benchmarkCapduBytes(Capdu{Cla: 0x00, Ins: 0xAA, P1: 0xBB, P2: 0xCC}, b)
+}
+func BenchmarkCapdu_BytesCase2Std(b *testing.B) {
+	benchmarkCapduBytes(Capdu{Cla: 0x00, Ins: 0xAA, P1: 0xBB, P2: 0xCC, Ne: 0xDD}, b)
+}
+func BenchmarkCapdu_BytesCase3Std(b *testing.B) {
+	benchmarkCapduBytes(Capdu{Cla: 0x00, Ins: 0xAA, P1: 0xBB, P2: 0xCC, Data: []byte{0x01, 0x02, 0x03, 0x04, 0x05}}, b)
+}
+func BenchmarkCapdu_BytesCase4Std(b *testing.B) {
+	benchmarkCapduBytes(Capdu{Cla: 0x00, Ins: 0xAA, P1: 0xBB, P2: 0xCC, Data: []byte{0x01, 0x02, 0x03, 0x04, 0x05}, Ne: 255}, b)
+}
+func BenchmarkCapdu_BytesCase2Ext(b *testing.B) {
+	benchmarkCapduBytes(Capdu{Cla: 0x00, Ins: 0xAA, P1: 0xBB, P2: 0xCC, Ne: 65535}, b)
+}
+func BenchmarkCapdu_BytesCase3Ext(b *testing.B) {
+	benchmarkCapduBytes(Capdu{Cla: 0x00, Ins: 0xAA, P1: 0xBB, P2: 0xCC, Data: make([]byte, 256)}, b)
+}
+func BenchmarkCapdu_BytesCase4Ext(b *testing.B) {
+	benchmarkCapduBytes(Capdu{Cla: 0x00, Ins: 0xAA, P1: 0xBB, P2: 0xCC, Data: make([]byte, 256), Ne: 65536}, b)
+}
+
+var resultRapdu *Rapdu
+
+func benchmarkParseRapdu(by []byte, b *testing.B) {
+	var r *Rapdu
+
+	b.ReportAllocs()
+
+	for n := 0; n < b.N; n++ {
+		r, _ = ParseRapdu(by)
+	}
+
+	resultRapdu = r
+}
+
+func BenchmarkParseRapduTrailerOnly(b *testing.B) { benchmarkParseRapdu([]byte{0x90, 0x00}, b) }
+func BenchmarkParseRapduTrailerAndData(b *testing.B) {
+	benchmarkParseRapdu([]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x90, 0x00}, b)
+}
+
+func benchmarkParseRapduHexString(s string, b *testing.B) {
+	var r *Rapdu
+
+	b.ReportAllocs()
+
+	for n := 0; n < b.N; n++ {
+		r, _ = ParseRapduHexString(s)
+	}
+
+	resultRapdu = r
+}
+
+func BenchmarkParseRapduHexStringTrailerOnly(b *testing.B) { benchmarkParseRapduHexString("9000", b) }
+func BenchmarkParseRapduHexStringTrailerAndData(b *testing.B) {
+	benchmarkParseRapduHexString("01020304059000", b)
+}
+
+func benchmarkRapduBytes(c Rapdu, b *testing.B) {
+	var r []byte
+
+	b.ReportAllocs()
+
+	for n := 0; n < b.N; n++ {
+		r, _ = c.Bytes()
+	}
+
+	resultBytes = r
+}
+
+func BenchmarkRapdu_BytesOTrailerOnly(b *testing.B) {
+	benchmarkRapduBytes(Rapdu{SW1: 0x90, SW2: 0x00}, b)
+}
+func BenchmarkRapdu_BytesTrailerAndData(b *testing.B) {
+	benchmarkRapduBytes(Rapdu{Data: []byte{0x01, 0x02, 0x03, 0x04, 0x05}, SW1: 0x90, SW2: 0x00}, b)
 }
