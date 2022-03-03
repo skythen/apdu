@@ -13,7 +13,7 @@ The package has support for extended length APDUs as well.
 
 `go get github.com/skythen/apdu`
 
-## CAPDU
+## Capdu
 
 ### Create
 
@@ -23,9 +23,7 @@ You can create a Capdu either by creating a Capdu struct:
   capduCase1 := Capdu{Cla: 0x00, Ins: 0xAB, P1: 0xCD, P2: 0xEF}
   capduCase2 := Capdu{Cla: 0x80, Ins: 0xCA, P1: 0x00, P2: 0x66, Ne: 256}
   capduCase3 := Capdu{Cla: 0x80, Ins: 0xF2, P1: 0xE0, P2: 0x02, Data: []byte{0x4F, 0x00}, Ne: 256}
- 
-  data := make([]byte, 65535)
-  capduCase4 := Capdu{Cla: 0x00, Ins: 0xAA, P1: 0xBB, P2: 0xCC, Data: data, Ne: 65536}
+  capduCase4 := Capdu{Cla: 0x00, Ins: 0xAA, P1: 0xBB, P2: 0xCC, Data: make([]byte, 65535), Ne: 65536}
 ```
 
 (please note that Ne is the expected length of response in bytes, not encoded as Le)
@@ -44,12 +42,8 @@ or by parsing from bytes/strings:
 You can convert a Capdu to its bytes representation with the Bytes() function. Case and format (standard/extended) are
 inferred and applied automatically.
 
-**Please note that the upper limit for the length of Capdu.Data is 65535 and 65536 for Capdu.Ne - values that exceed
-these limits are truncated. This is to avoid returning errors and to make working with APDUs
-more convenient.**
-
 ```go
-  b := capdu.Bytes()
+  b, err := capdu.Bytes()
 ```
 
 #### String
@@ -57,18 +51,10 @@ more convenient.**
 You can convert a Capdu to its hex representation as well. The same rules apply as for conversion to bytes:
 
 ```go
-  s := capdu.String()
+  s, err := capdu.String()
 ```
 
 ### Utility
-
-#### Lc
-
-Use Lc to retrieve the byte representation of the CAPDU's Lc:
-
-```go
-  lc := capdu.Lc()
-```
 
 #### IsExtendedLength
 
@@ -78,22 +64,22 @@ Use IsExtendedLength to check if the CAPDU is of extended length (len of Data > 
   ext := capdu.IsExtendedLength()
 ```
 
-## RAPDU
+## Rapdu
 
 ### Create
 
 You can create a Rapdu either by creating a Rapdu struct:
 
 ```go
-  rapduSwOnly := Rapdu{SW1: 0x90, SW2: 0x00}
-  rapduData := Rapdu{Data: []byte{0x01, 0x02, 0x03},SW1: 0x90, SW2: 0x00}
+  r1 := Rapdu{SW1: 0x90, SW2: 0x00}
+  r2 := Rapdu{Data: []byte{0x01, 0x02, 0x03}, SW1: 0x90, SW2: 0x00}
 ```
 
 or by parsing from bytes/strings:
 
 ```go
-  bRapdu, err := apdu.ParseRapdu([]byte{0x90, 0x00)
-  sRapdu, err := apdu.ParseRapduHexString("0102039000")
+  r1, err := apdu.ParseRapdu([]byte{0x90, 0x00)
+  r2, err := apdu.ParseRapduHexString("0102039000")
 ```
 
 ### Convert
@@ -102,16 +88,30 @@ or by parsing from bytes/strings:
 
 You can convert a Rapdu to its bytes representation with the Bytes() function.
 
-**Please note that the upper limit for the length of Rapdu.Data is 65536 - values that exceed this limit are truncated. This is to avoid returning errors and to make working with APDUs more convenient.**
-
 ```go
-  b := rapdu.Bytes()
+  b, err := rapdu.Bytes()
 ```
 
 #### String
 
-You can convert a Rapdu to its hex representation as well. The same rules apply as for conversion to bytes:
+You can convert a Rapdu to its hex representation as well.
 
 ```go
-  s := rapdu.String()
+  s, err := rapdu.String()
+```
+
+### Utility
+
+#### Success/Warning/Error
+
+Use IsSuccess/IsWarning/IsError to check the response status.
+
+```go
+  if !rapdu.IsSuccess() {
+	  ...
+  }
+
+  if rapdu.IsWarning() || rapdu.IsError(){
+      ...
+  }
 ```
