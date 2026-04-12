@@ -5,9 +5,22 @@ package apdu
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"strings"
+)
 
-	"github.com/pkg/errors"
+var (
+	// ErrInvalidLength indicates that the input has an invalid length.
+	ErrInvalidLength = errors.New("invalid length")
+	// ErrInvalidLC indicates that the LC value does not match the data length.
+	ErrInvalidLC = errors.New("invalid LC value")
+	// ErrInvalidHex indicates that the hex string input is malformed.
+	ErrInvalidHex = errors.New("invalid hex string")
+	// ErrDataTooLong indicates that the data field exceeds the maximum allowed length.
+	ErrDataTooLong = errors.New("data too long")
+	// ErrNeTooLarge indicates that Ne exceeds the maximum allowed value.
+	ErrNeTooLarge = errors.New("ne too large")
 )
 
 const (
@@ -42,8 +55,7 @@ const (
 	// LenLCExtended defines the length of the LC of an extended length APDU.
 	LenLCExtended int = 3
 	// LenResponseTrailer defines the length of the trailer of a Response APDU.
-	LenResponseTrailer int    = 2
-	packageTag         string = "skythen/apdu"
+	LenResponseTrailer int = 2
 )
 
 // Capdu is a Command APDU.
@@ -59,7 +71,7 @@ type Capdu struct {
 // ParseCapdu parses a Command APDU and returns a Capdu.
 func ParseCapdu(c []byte) (*Capdu, error) {
 	if len(c) < LenHeader || len(c) > 65544 {
-		return nil, errors.Errorf("%s: invalid length - Capdu must consist of at least 4 byte and maximum of 65544 byte, got %d", packageTag, len(c))
+		return nil, fmt.Errorf("%w: CAPDU must be between 4 and 65544 bytes, got %d", ErrInvalidLength, len(c))
 	}
 
 	// CASE 1 command: only HEADER
@@ -90,7 +102,7 @@ func ParseCapdu(c []byte) (*Capdu, error) {
 
 			lc := int(binary.BigEndian.Uint16(c[OffsetLcExtended : OffsetLcExtended+2]))
 			if lc != bodyLen-LenLCExtended && lc != bodyLen-LenLCExtended-2 {
-				return nil, errors.Errorf("%s: invalid LC value - LC indicates data length %d", packageTag, lc)
+				return nil, fmt.Errorf("%w: LC indicates data length %d", ErrInvalidLC, lc)
 			}
 
 			data := c[OffsetCdataExtended : OffsetCdataExtended+lc]
@@ -132,7 +144,7 @@ func ParseCapdu(c []byte) (*Capdu, error) {
 	// check if lc indicates valid length
 	lc := int(c[OffsetLcStandard])
 	if lc != bodyLen-LenLCStandard && lc != bodyLen-LenLCStandard-1 {
-		return nil, errors.Errorf("%s: invalid Lc value - Lc indicates length %d", packageTag, lc)
+		return nil, fmt.Errorf("%w: LC indicates data length %d", ErrInvalidLC, lc)
 	}
 
 	data := c[OffsetCdataStandard : OffsetCdataStandard+lc]
@@ -155,16 +167,16 @@ func ParseCapdu(c []byte) (*Capdu, error) {
 // ParseCapduHexString decodes the hex-string representation of a Command APDU, calls ParseCapdu and returns a Capdu.
 func ParseCapduHexString(s string) (*Capdu, error) {
 	if len(s)%2 != 0 {
-		return nil, errors.Errorf("%s: uneven number of hex characters", packageTag)
+		return nil, fmt.Errorf("%w: odd number of hex characters", ErrInvalidHex)
 	}
 
 	if len(s) < 8 || len(s) > 131088 {
-		return nil, errors.Errorf("%s: invalid length of hex string - a Capdu must consist of at least 4 byte and maximum of 65544 byte, got %d", packageTag, len(s)/2)
+		return nil, fmt.Errorf("%w: CAPDU must be between 4 and 65544 bytes, got %d", ErrInvalidLength, len(s)/2)
 	}
 
 	b, err := hex.DecodeString(s)
 	if err != nil {
-		return nil, errors.Wrapf(err, "%s: hex conversion error", packageTag)
+		return nil, fmt.Errorf("%w: %v", ErrInvalidHex, err)
 	}
 
 	return ParseCapdu(b)
@@ -175,18 +187,16 @@ func (c *Capdu) Bytes() ([]byte, error) {
 	dataLen := len(c.Data)
 
 	if dataLen > MaxLenCommandDataExtended {
-		return nil, errors.Errorf("%s: len of Capdu.Data %d exceeds maximum allowed length of %d",
-			packageTag, len(c.Data), MaxLenCommandDataExtended)
+		return nil, fmt.Errorf("%w: CAPDU data length %d exceeds maximum %d",
+			ErrDataTooLong, dataLen, MaxLenCommandDataExtended)
 	}
 
 	if c.Ne > MaxLenResponseDataExtended {
-		return nil, errors.Errorf("%s: ne %d exceeds maximum allowed length of %d",
-			packageTag, len(c.Data), MaxLenResponseDataExtended)
+		return nil, fmt.Errorf("%w: Ne %d exceeds maximum %d",
+			ErrNeTooLarge, c.Ne, MaxLenResponseDataExtended)
 	}
 
-	ca := c.determineCase()
-
-	switch ca {
+	switch c.determineCase() {
 	case 1:
 		return []byte{c.Cla, c.Ins, c.P1, c.P2}, nil
 	case 2:
@@ -320,7 +330,7 @@ type Rapdu struct {
 // ParseRapdu parses a Response APDU and returns a Rapdu.
 func ParseRapdu(b []byte) (*Rapdu, error) {
 	if len(b) < LenResponseTrailer || len(b) > 65538 {
-		return nil, errors.Errorf("%s: invalid length - a RAPDU must consist of at least 2 byte and maximum of 65538 byte, got %d", packageTag, len(b))
+		return nil, fmt.Errorf("%w: RAPDU must be between 2 and 65538 bytes, got %d", ErrInvalidLength, len(b))
 	}
 
 	if len(b) == LenResponseTrailer {
@@ -333,16 +343,16 @@ func ParseRapdu(b []byte) (*Rapdu, error) {
 // ParseRapduHexString decodes the hex-string representation of a Response APDU, calls ParseRapdu and returns a Rapdu.
 func ParseRapduHexString(s string) (*Rapdu, error) {
 	if len(s)%2 != 0 {
-		return nil, errors.Errorf("%s: uneven number of hex characters", packageTag)
+		return nil, fmt.Errorf("%w: odd number of hex characters", ErrInvalidHex)
 	}
 
 	if len(s) < 4 || len(s) > 131076 {
-		return nil, errors.Errorf("%s: invalid length of hex string - a RAPDU must consist of at least 2 byte and maximum of 65538 byte, got %d", packageTag, len(s)/2)
+		return nil, fmt.Errorf("%w: RAPDU must be between 2 and 65538 bytes, got %d", ErrInvalidLength, len(s)/2)
 	}
 
 	tmp, err := hex.DecodeString(s)
 	if err != nil {
-		return nil, errors.Wrapf(err, "%s: hex conversion error", packageTag)
+		return nil, fmt.Errorf("%w: %v", ErrInvalidHex, err)
 	}
 
 	return ParseRapdu(tmp)
@@ -351,8 +361,8 @@ func ParseRapduHexString(s string) (*Rapdu, error) {
 // Bytes returns the byte representation of the RAPDU.
 func (r *Rapdu) Bytes() ([]byte, error) {
 	if len(r.Data) > MaxLenResponseDataExtended {
-		return nil, errors.Errorf("%s: len of Rapdu.Data %d exceeds maximum allowed length of %d",
-			packageTag, len(r.Data), MaxLenResponseDataExtended)
+		return nil, fmt.Errorf("%w: RAPDU data length %d exceeds maximum %d",
+			ErrDataTooLong, len(r.Data), MaxLenResponseDataExtended)
 	}
 
 	b := make([]byte, 0, len(r.Data)+2)
@@ -374,7 +384,7 @@ func (r *Rapdu) String() (string, error) {
 
 // IsSuccess returns true if the RAPDU indicates the successful execution of a command ('0x61xx' or '0x9000'), otherwise false.
 func (r *Rapdu) IsSuccess() bool {
-	return r.SW1 == 0x61 || r.SW1 == 0x90 && r.SW2 == 0x00
+	return r.SW1 == 0x61 || (r.SW1 == 0x90 && r.SW2 == 0x00)
 }
 
 // IsWarning returns true if the RAPDU indicates the execution of a command with a warning ('0x62xx' or '0x63xx'), otherwise false.
